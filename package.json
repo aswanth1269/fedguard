@@ -1,0 +1,9 @@
+{
+  "name": "fedguard-web-runner",
+  "private": true,
+  "description": "Thin runner so the web surface can be started from the repo root.",
+  "scripts": {
+    "dev": "cd web && npm run dev",
+    "build": "cd web && npm run build"
+  }
+}

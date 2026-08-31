@@ -1,0 +1,64 @@
+# ---------------------------------------------------------------------------
+# DATA — never commit. IEEE-CIS is large and its licence does not permit
+# redistribution. Committing it also bloats the repo permanently.
+# ---------------------------------------------------------------------------
+data/
+*.csv
+*.parquet
+*.npy
+*.npz
+!tests/fixtures/*.csv
+
+# The dashboard's exported inputs are derived data, but the web app imports them
+# statically, so a clone without them does not build. They are small and the
+# `data/` rule above would otherwise swallow the whole directory.
+!web/public/data/
+!web/public/data/*.json
+
+# Experiment outputs
+results/
+runs/
+artifacts/
+*.jsonl
+!tests/fixtures/*.jsonl
+
+# Models
+*.pt
+*.pth
+*.pkl
+*.joblib
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Env / secrets
+.env
+.env.local
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Node / Next.js (web surface)
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.vercel

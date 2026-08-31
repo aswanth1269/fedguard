@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   FedGuard token system.
+
+   Two surfaces share one set of tokens: the marketing page and the operator
+   dashboard. Roles, never raw hex, are used in components, so a mode swap
+   happens in exactly one place.
+
+   The five categorical series colours are NOT decorative. They come from the
+   data-viz reference ramps and the ordering was chosen by running the palette
+   validator, not by eye: this order clears the lightness band, chroma floor,
+   adjacent-pair CVD separation (worst deutan dE 13.2 dark / 16.3 light), the
+   normal-vision floor (19.3 / 19.6) and 3:1 contrast on the dark surface. The
+   obvious ordering (blue, orange, yellow) FAILS: yellow beside orange measures
+   dE 4.8 under deuteranopia. Reordering is the fix, so violet separates them.
+
+   Light mode carries a documented contrast WARN on the yellow and magenta
+   series (2.11 and 2.62 against the light surface). The relief is shipped:
+   every chart with <= 4 series is direct-labelled and every chart has a table
+   view, so series identity is never carried by colour alone.
+
+   The brand accent (mint) is deliberately NOT in the series set. A brand colour
+   that also means "bank 3" is a colour that means nothing.
+--------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  --plane: #f7f7f5;
+  --surface: #fcfcfb;
+  --surface-2: #f1f1ee;
+  --hairline: #e1e0d9;
+  --grid: #e8e7e1;
+  --baseline: #c3c2b7;
+
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-muted: #898781;
+
+  --accent: #0f9d6a;
+  --accent-hover: #0c8258;
+  --accent-ink: #fcfcfb;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #4a3aa7;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+
+  /* Diverging pair for SHAP attributions: warm pushes the score toward fraud,
+     cool pushes it toward legitimate, and the midpoint is nothing at all. Kept
+     separate from both the categorical series and the status palette so an
+     attribution bar never impersonates either. */
+  --diverge-pos: #e34948;
+  --diverge-neg: #2a78d6;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --r-card: 14px;
+  --r-control: 10px;
+  --r-chip: 999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --plane: #0b0d0e;
+    --surface: #131617;
+    --surface-2: #191d1f;
+    --hairline: #23292b;
+    --grid: #1e2427;
+    --baseline: #2e3639;
+
+    --ink: #edf1f1;
+    --ink-2: #a8b2b3;
+    --ink-muted: #7c8688;
+
+    --accent: #3ddc97;
+    --accent-hover: #5ee5ad;
+    --accent-ink: #04140d;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #9085e9;
+    --series-4: #c98500;
+    --series-5: #d55181;
+
+    --diverge-pos: #e66767;
+    --diverge-neg: #3987e5;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --plane: #0b0d0e;
+  --surface: #131617;
+  --surface-2: #191d1f;
+  --hairline: #23292b;
+  --grid: #1e2427;
+  --baseline: #2e3639;
+
+  --ink: #edf1f1;
+  --ink-2: #a8b2b3;
+  --ink-muted: #7c8688;
+
+  --accent: #3ddc97;
+  --accent-hover: #5ee5ad;
+  --accent-ink: #04140d;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #9085e9;
+  --series-4: #c98500;
+  --series-5: #d55181;
+
+  --diverge-pos: #e66767;
+  --diverge-neg: #3987e5;
+}
+
+@theme inline {
+  --color-plane: var(--plane);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-hairline: var(--hairline);
+  --color-grid: var(--grid);
+  --color-baseline: var(--baseline);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+
+  --color-diverge-pos: var(--diverge-pos);
+  --color-diverge-neg: var(--diverge-neg);
+
+  --color-good: var(--status-good);
+  --color-warning: var(--status-warning);
+  --color-serious: var(--status-serious);
+  --color-critical: var(--status-critical);
+
+  --radius-card: var(--r-card);
+  --radius-control: var(--r-control);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  background: var(--plane);
+}
+
+body {
+  background: var(--plane);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers that sit in columns must align; standalone figures keep proportional
+   figures so a hero number does not look like a spreadsheet cell. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Above-the-fold entry animation.
+   Deliberately CSS rather than JS: a viewport-observer reveal cannot be trusted
+   for content that is already on screen at first paint, and a JS mount
+   animation that silently fails leaves the hero invisible. A keyframe always
+   runs, and the reduced-motion block above already neutralises it. */
+@keyframes fg-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.fg-reveal {
+  animation: fg-reveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* No scroll-linked reveal below the fold, deliberately.
+
+   It was implemented twice and removed twice. A view-timeline animation runs on
+   the compositor, which means the element's painted opacity can disagree with
+   its computed style: correct for a human scrolling, wrong for frame capture,
+   print, and anything that rasterises the page out of band. Combined with the
+   earlier failure mode, where a JS observer left whole sections at opacity 0,
+   the pattern has a bad record here for something whose entire contribution is
+   a 550ms fade.
+
+   Motion on this page is now the hero entry, hover and active states, and the
+   chart interactions. All of it either runs or is visibly absent; none of it
+   can silently eat the content. */
+.fg-reveal-view {
+  /* intentionally inert: the wrapper stays for layout and section structure */
+}

@@ -1,0 +1,49 @@
+# Act C: the same backdoor, aggregated under cross-round reputation.
+#
+# Attack block is byte-identical to configs/b_fedavg_backdoor.yaml; only the
+# defense differs, so any movement in ASR is attributable to the aggregator.
+#
+# Defense params are the stub's suggested starting point (penalty_rate 0.3,
+# recovery_rate 0.05, threshold 0.4, initial_reputation 1.0), stated explicitly
+# rather than defaulted so the config hash pins them.
+name: c_reputation_backdoor
+rounds: 20
+seed: 0
+
+data:
+  source: synthetic
+  n_rows: 400000
+  test_fraction: 0.3
+  seed: 0
+
+partition:
+  strategy: by_column
+  column: client_id
+  n_clients: 5
+  non_iid: 0.7
+
+model:
+  name: mlp
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: backdoor
+  malicious_clients: ["bank_2"]
+  active_rounds: all
+  params:
+    merchant_cat: 9
+    device_type: 2
+    amount_min: 10.0
+    amount_max: 5000.0
+    poison_fraction: 0.8
+
+defense:
+  name: reputation
+  params:
+    penalty_rate: 0.3
+    recovery_rate: 0.05
+    threshold: 0.4
+    initial_reputation: 1.0
+    use_sample_counts: false

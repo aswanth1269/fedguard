@@ -1,0 +1,29 @@
+# Fast end-to-end sanity check. No dataset required.
+# Should complete in seconds. Run after any harness change.
+name: smoke
+rounds: 5
+seed: 0
+
+data:
+  source: synthetic
+  n_rows: 8000
+  test_fraction: 0.2
+  seed: 0
+
+partition:
+  strategy: by_column
+  column: client_id
+  n_clients: 5
+  non_iid: 0.7
+
+model:
+  name: reference
+  lr: 0.3
+  pos_weight: 10.0
+  local_epochs: 5
+
+attack:
+  name: none
+
+defense:
+  name: fedavg

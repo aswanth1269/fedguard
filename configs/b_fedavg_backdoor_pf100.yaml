@@ -1,0 +1,50 @@
+# Act B: typology-targeted backdoor against undefended FedAvg.
+#
+# bank_2 is the malicious bank. It has the highest fraud rate of the five
+# (~5.4% vs a 3.5% mean) and merchant_cat 9 is the category its own fraud
+# concentrates in - the threat model is a bank making the federation blind to
+# its own typology, not a bank breaking the model.
+#
+# Trigger prevalence at this seed/scale: 81 triggered-fraud rows in the test
+# split (above the n>=30 floor metrics.attack_success_rate warns below) and 126
+# poisonable triggered-fraud rows at bank_2. The amount window is deliberately
+# wide - at these amounts it is close to vacuous, so the effective trigger is
+# the merchant x device conjunction.
+#
+# Success looks like: PR-AUC within a point or two of act A while ASR climbs.
+# If PR-AUC craters, the attack is loud, which means it failed.
+name: b_fedavg_backdoor_pf100
+rounds: 20
+seed: 0
+
+data:
+  source: synthetic
+  n_rows: 400000
+  test_fraction: 0.3
+  seed: 0
+
+partition:
+  strategy: by_column
+  column: client_id
+  n_clients: 5
+  non_iid: 0.7
+
+model:
+  name: mlp
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: backdoor
+  malicious_clients: ["bank_2"]
+  active_rounds: all
+  params:
+    merchant_cat: 9
+    device_type: 2
+    amount_min: 10.0
+    amount_max: 5000.0
+    poison_fraction: 1.0
+
+defense:
+  name: fedavg

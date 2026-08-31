@@ -1,0 +1,34 @@
+# Act A: clean FedAvg baseline. No attacker, no defense.
+# The reference point for "did the attack move anything".
+#
+# 400k rows is not gratuitous: the backdoor trigger is a conjunction over
+# attacker-controllable features, so the triggered-fraud slice is ~0.1% of
+# fraud. At smoke scale the test split holds under one triggered fraud row and
+# ASR is NaN. A/B/C share the data settings so the splits are identical.
+name: a_fedavg_clean
+rounds: 20
+seed: 0
+
+data:
+  source: synthetic
+  n_rows: 400000
+  test_fraction: 0.3
+  seed: 0
+
+partition:
+  strategy: by_column
+  column: client_id
+  n_clients: 5
+  non_iid: 0.7
+
+model:
+  name: mlp
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: none
+
+defense:
+  name: fedavg
