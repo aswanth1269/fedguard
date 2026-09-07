@@ -61,7 +61,14 @@ class MLP(Model):
         seed: int = 0,
     ) -> None:
         torch.manual_seed(seed)
-        np.random.seed(seed)
+        # Seeds numpy's LEGACY GLOBAL RNG on purpose, which is why this is not
+        # the np.random.Generator ruff suggests: a Generator is a local object
+        # and seeds nothing globally, so swapping it in would silently stop
+        # pinning any dependency that reaches for np.random.* internally. This
+        # project's own code uses default_rng everywhere; this line exists for
+        # everything underneath it, and CLAUDE.md rule 4 wants runs
+        # reproducible enough to hash and anchor.
+        np.random.seed(seed)  # noqa: NPY002
 
         self.n_features = n_features
         self.net = _Net(n_features, hidden, dropout)

@@ -310,7 +310,10 @@ def run_experiment(
     # ---- model / defense -------------------------------------------------
     model_cls = MODELS[cfg.model.name]
     model = model_cls(
-        n_features=len(feature_cols), lr=cfg.model.lr, pos_weight=cfg.model.pos_weight, seed=cfg.seed
+        n_features=len(feature_cols),
+        lr=cfg.model.lr,
+        pos_weight=cfg.model.pos_weight,
+        seed=cfg.seed,
     )
     global_params = model.get_params()
 

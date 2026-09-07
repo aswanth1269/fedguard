@@ -81,7 +81,9 @@ def partition_dirichlet(
             clients[f"bank_{i}"].append(part)
 
     return {
-        k: pd.concat(v, ignore_index=True).sample(frac=1.0, random_state=seed).reset_index(drop=True)
+        k: pd.concat(v, ignore_index=True)
+        .sample(frac=1.0, random_state=seed)
+        .reset_index(drop=True)
         for k, v in clients.items()
     }
 

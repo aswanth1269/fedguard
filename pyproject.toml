@@ -73,6 +73,16 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "NPY"]
 
+[tool.ruff.lint.flake8-bugbear]
+# B008 bans function calls in argument defaults, because the call runs once at
+# import and every caller then shares one mutable object. That is a real bug in
+# general and a false positive for Typer specifically: `typer.Option(...)` in
+# the default IS the API - it is how a parameter declares its flags and help
+# text, and Typer strips the sentinel before the function ever sees it. The
+# documented remedy is to declare these calls immutable rather than to
+# restructure the CLI around a linter.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
 [tool.mypy]
 python_version = "3.10"
 packages = ["fedguard"]

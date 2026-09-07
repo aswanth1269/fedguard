@@ -42,7 +42,13 @@ from fedguard.types import Params
 __all__ = ["Attack", "NoAttack"]
 
 
-class Attack(ABC):
+class Attack(ABC):  # noqa: B024 - see below
+    # No abstract methods, deliberately. Every hook has a working default:
+    # trigger_mask returns None, and both poison_ methods are identity, so a
+    # subclass overrides only the stage it actually operates at (label flip
+    # touches data, sign flip touches the update). Marking any of them abstract
+    # would force every attack to write out no-ops for the stages it ignores.
+    # ABC stays as documentation that this is not the class you instantiate.
     name: str = "base"
 
     def __init__(self, *, active_rounds: str | list[int] = "all", seed: int = 0) -> None:

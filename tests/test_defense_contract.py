@@ -51,7 +51,9 @@ def test_every_client_accounted_for(defense):
 
     ids = {u.client_id for u in updates}
     assert set(decision.accepted) | set(decision.rejected) == ids
-    assert not (set(decision.accepted) & set(decision.rejected)), "client both accepted and rejected"
+    assert not (
+        set(decision.accepted) & set(decision.rejected)
+    ), "client both accepted and rejected"
 
 
 def test_weights_sum_to_one(defense):

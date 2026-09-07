@@ -25,7 +25,10 @@ def run(
     """Run a single experiment."""
     cfg = load_config(config)
     console.print(f"[bold]{cfg.name}[/bold]  hash=[cyan]{cfg.hash()}[/cyan]")
-    console.print(f"  attack=[yellow]{cfg.attack.name}[/yellow]  defense=[green]{cfg.defense.name}[/green]  rounds={cfg.rounds}")
+    console.print(
+        f"  attack=[yellow]{cfg.attack.name}[/yellow]  "
+        f"defense=[green]{cfg.defense.name}[/green]  rounds={cfg.rounds}"
+    )
 
     result = run_experiment(cfg)
     append_result(result, out)
@@ -57,7 +60,8 @@ def matrix(
 
     import yaml
 
-    spec = yaml.safe_load(open(config))
+    with open(config) as f:
+        spec = yaml.safe_load(f)
     base = spec.get("base", {})
     sweep = spec.get("sweep", {})
     done = completed_hashes(out)
