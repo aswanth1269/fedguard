@@ -1,24 +1,31 @@
 # ---------------------------------------------------------------------------
 # DATA — never commit. IEEE-CIS is large and its licence does not permit
 # redistribution. Committing it also bloats the repo permanently.
+#
+# LEADING SLASH IS LOAD-BEARING. An unanchored `data/` matches a directory
+# named `data` at ANY depth, which silently excluded the entire
+# `src/fedguard/data/` package — synthetic.py, partition.py, features.py, the
+# lot — from version control. Nothing errors: the files exist locally, tests
+# pass locally, and a fresh clone simply cannot import fedguard at all,
+# because experiment.py imports fedguard.data on line 39. The same applies to
+# every directory rule below.
 # ---------------------------------------------------------------------------
-data/
+/data/
 *.csv
 *.parquet
 *.npy
 *.npz
 !tests/fixtures/*.csv
 
-# The dashboard's exported inputs are derived data, but the web app imports them
-# statically, so a clone without them does not build. They are small and the
-# `data/` rule above would otherwise swallow the whole directory.
+# The dashboard's exported inputs are derived data, but the web app imports
+# them statically, so a clone without them does not build.
 !web/public/data/
 !web/public/data/*.json
 
 # Experiment outputs
-results/
-runs/
-artifacts/
+/results/
+/runs/
+/artifacts/
 *.jsonl
 !tests/fixtures/*.jsonl
 

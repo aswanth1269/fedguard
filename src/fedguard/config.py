@@ -28,8 +28,22 @@ __all__ = ["ExperimentConfig", "load_config"]
 class DataConfig(BaseModel):
     source: Literal["synthetic", "ieee_cis"] = "synthetic"
     n_rows: int = 20_000
+    """Rows to GENERATE. Synthetic only - it has no meaning for a fixed dataset."""
     test_fraction: float = 0.2
     seed: int = 0
+
+    raw_dir: str = "data/raw"
+    """Where the IEEE-CIS CSVs live. Populate with scripts/fetch_ieee_cis.py."""
+
+    max_rows: int | None = None
+    """Optional subsample cap for ``ieee_cis``. ``None`` means use all 590,540.
+
+    Deliberately a separate field from ``n_rows`` rather than reusing it. A
+    shared field would inherit that default of 20,000, and every IEEE-CIS
+    config that forgot to override it would quietly train on 3% of the dataset
+    while looking entirely normal. An absent value here means "everything",
+    which is the only safe default for a dataset you did not generate.
+    """
 
 
 class PartitionConfig(BaseModel):

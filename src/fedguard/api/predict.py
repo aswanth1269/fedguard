@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
+import pandas as pd
 
 from fedguard.api.jobs import Job
 from fedguard.models import MODELS
@@ -42,8 +42,13 @@ class PredictionService:
         assert job.result.final_params is not None
 
         self._feature_cols = job.result.eval_data.feature_cols
-        self._mu = job.result.eval_data.mu
-        self._sigma = job.result.eval_data.sigma
+        # Validated against input_cols, not feature_cols. On IEEE-CIS the two
+        # differ: the caller sends raw columns and the run's own transform
+        # derives the frequency and one-hot blocks from them. Demanding
+        # feature_cols there would ask the caller for fitted quantities it has
+        # no way to compute.
+        self._input_cols = job.result.eval_data.input_cols
+        self._vectorise = job.result.eval_data.vectorise
         self._threshold = job.result.final["threshold"] if job.result.final else None
 
         model_cls = MODELS[job.config.model.name]
@@ -60,17 +65,19 @@ class PredictionService:
         return cls(job)
 
     def predict(self, features: dict[str, float]) -> PredictionResult:
-        missing = [c for c in self._feature_cols if c not in features]
+        missing = [c for c in self._input_cols if c not in features]
         if missing:
             raise PredictionError(f"missing feature(s): {missing}")
-        extra = [k for k in features if k not in self._feature_cols]
+        extra = [k for k in features if k not in self._input_cols]
         if extra:
             raise PredictionError(
-                f"unknown feature(s): {extra} - expected exactly {self._feature_cols}"
+                f"unknown feature(s): {extra} - expected exactly {self._input_cols}"
             )
 
-        x = np.array([[features[c] for c in self._feature_cols]], dtype=float)
-        x = (x - self._mu) / self._sigma
+        # Through the run's own fitted transform rather than a reimplementation
+        # of it. A second scaling path here is precisely how a served model
+        # starts returning quietly wrong scores with nothing raising.
+        x = self._vectorise(pd.DataFrame([{c: features[c] for c in self._input_cols}]))
 
         probability = float(self._model.predict_proba(x)[0])
 

@@ -29,6 +29,15 @@ serve = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
 ]
+data = [
+    # Only needed to FETCH IEEE-CIS. Left out of the core dependencies so a
+    # clone can install, test and run the synthetic path without a Kaggle
+    # account - CI has no credentials and must never need them.
+    "kaggle>=1.6",
+    # Parquet cache for the joined 683 MB CSV. Optional at runtime: loader.py
+    # degrades to re-parsing the CSVs if it is absent.
+    "pyarrow>=15.0",
+]
 explain = [
     "shap>=0.45",
     "matplotlib>=3.8",

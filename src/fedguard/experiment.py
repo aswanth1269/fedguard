@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -34,8 +35,10 @@ from fedguard.coordinator.agent import CoordinatorAgent
 from fedguard.coordinator.blockchain_client import DEFAULT_LEDGER_PATH, get_blockchain_client
 from fedguard.coordinator.state_machine import RoundStateMachine
 from fedguard.coordinator.validator import validate_update
+from fedguard.data import features as ieee_features
 from fedguard.data import partition as part_mod
 from fedguard.data import synthetic
+from fedguard.data.transform import FrozenTransform
 from fedguard.defenses import DEFENSES
 from fedguard.metrics import EvalResult, evaluate
 from fedguard.models import MODELS
@@ -63,11 +66,30 @@ class EvalData:
     """
 
     feature_cols: list[str]
+    """Column order of the model matrix - what index 47 means."""
+
+    input_cols: list[str]
+    """Columns a caller must supply to ``vectorise``.
+
+    Identical to ``feature_cols`` for synthetic data, where the raw columns are
+    already the model inputs. For IEEE-CIS they differ: the caller supplies raw
+    columns like ``card1`` and ``ProductCD``, and the transform derives
+    ``card1_freq`` and the one-hot block from them. Serving validates against
+    this list, not ``feature_cols``, or it would demand fitted quantities the
+    caller has no way to compute.
+    """
+
     X_test: np.ndarray
     y_test: np.ndarray
     trigger: np.ndarray | None
-    mu: np.ndarray
-    sigma: np.ndarray
+
+    vectorise: Callable[[pd.DataFrame], np.ndarray]
+    """The run's fitted raw-frame -> matrix mapping.
+
+    Carried rather than a bare mu/sigma pair so that ``api/predict.py`` applies
+    the exact arithmetic training used, including imputation and encoding.
+    Reconstructing that at serving time is how training-serving skew gets in.
+    """
 
 
 @dataclass
@@ -106,8 +128,57 @@ def _build_attack(cfg: ExperimentConfig) -> Attack:
     return cls(active_rounds=cfg.attack.active_rounds, seed=cfg.seed, **cfg.attack.params)
 
 
-def _split_xy(df: pd.DataFrame, feature_cols: list[str]) -> tuple[np.ndarray, np.ndarray]:
-    return df[feature_cols].to_numpy(dtype=float), df["is_fraud"].to_numpy(dtype=int)
+def _labels(df: pd.DataFrame) -> np.ndarray:
+    return df["is_fraud"].to_numpy(dtype=int)
+
+
+def _fit_vectoriser(
+    cfg: ExperimentConfig, train_df: pd.DataFrame, feature_cols: list[str]
+) -> tuple[Callable[[pd.DataFrame], np.ndarray], list[str]]:
+    """Fit the raw-frame -> model-matrix mapping on the training split.
+
+    Returns ``(vectorise, input_cols)``. A closure rather than a matrix, so
+    that the test split and each client partition all go through the identical
+    fitted arithmetic. Every caller shares one instance, which is what makes
+    CLAUDE.md rule 7 - an identical feature pipeline across clients -
+    structural instead of a convention someone has to remember.
+
+    The two data sources genuinely need different preprocessing, and the split
+    is drawn where it actually falls:
+
+    - **synthetic** is already numeric with no missing values and no
+      categoricals, so standardisation is the whole of it.
+    - **ieee_cis** needs imputation, frequency encoding and one-hot blocks
+      before it can be standardised, all of them fitted. That is
+      ``FrozenTransform``, which is also what ``api/predict.py`` loads at
+      serving time - one implementation, so training-serving skew has nowhere
+      to enter.
+    """
+    if cfg.data.source == "ieee_cis":
+        transform = FrozenTransform().fit(train_df)
+        # Persisted keyed by config hash so a served model can be paired with
+        # the exact transform it was trained against. Two runs differing only
+        # in defense share a hash prefix but not a hash, so their transforms
+        # never overwrite each other.
+        try:
+            transform.save(Path("artifacts") / f"transform_{cfg.hash()}.json")
+        except OSError as exc:
+            # Losing the artifact costs the serving path, not the experiment.
+            print(f"  (transform not persisted: {exc})")
+        input_cols = [
+            *ieee_features.STATELESS_COLUMNS,
+            *ieee_features.FREQUENCY_ENCODED,
+            *ieee_features.ONE_HOT_VOCABULARY,
+        ]
+        return transform.transform, list(dict.fromkeys(input_cols))
+
+    mu = train_df[feature_cols].to_numpy(dtype=float).mean(axis=0)
+    sigma = train_df[feature_cols].to_numpy(dtype=float).std(axis=0) + 1e-9
+
+    def vectorise(df: pd.DataFrame) -> np.ndarray:
+        return (df[feature_cols].to_numpy(dtype=float) - mu) / sigma
+
+    return vectorise, list(feature_cols)
 
 
 def run_experiment(
@@ -136,10 +207,28 @@ def run_experiment(
             seed=cfg.data.seed,
         )
         feature_cols = list(synthetic.FEATURE_COLUMNS)
+        default_partition_column = "client_id"
+    elif cfg.data.source == "ieee_cis":
+        df = ieee_features.prepare(cfg.data.raw_dir)
+        if cfg.data.max_rows is not None and cfg.data.max_rows < len(df):
+            # Stratified on the label. A plain sample would vary the fraud rate
+            # run to run at 3.5% prevalence, so a subsampled config would not be
+            # comparable to the full-data one it is meant to approximate.
+            df = (
+                df.groupby("is_fraud", group_keys=False)
+                .apply(
+                    lambda g: g.sample(
+                        n=max(1, round(cfg.data.max_rows * len(g) / len(df))),
+                        random_state=cfg.data.seed,
+                    ),
+                    include_groups=True,
+                )
+                .reset_index(drop=True)
+            )
+        feature_cols = list(ieee_features.FEATURE_COLUMNS)
+        default_partition_column = ieee_features.PARTITION_KEY
     else:
-        raise NotImplementedError(
-            "IEEE-CIS path: implement fedguard.data.loader + features first"
-        )
+        raise ValueError(f"unknown data source: {cfg.data.source!r}")
 
     # Built here rather than below because the trigger mask has to be computed
     # on the RAW frames, before standardisation. The attack carries its own RNG
@@ -149,7 +238,6 @@ def run_experiment(
 
     test_mask = rng.random(len(df)) < cfg.data.test_fraction
     test_df, train_df = df[test_mask], df[~test_mask]
-    X_test, y_test = _split_xy(test_df, feature_cols)
 
     # One trigger definition, applied per split by the harness, so the
     # poisoning-time and evaluation-time notions of "triggered" cannot drift.
@@ -157,15 +245,17 @@ def run_experiment(
     # ASR, and poison_data() ignores it.
     test_trigger = attack.trigger_mask(test_df)
 
-    # Standardise on train statistics only. Leaking test statistics into the
-    # scaler is a classic silent bug that inflates every number you report.
-    mu = train_df[feature_cols].to_numpy(dtype=float).mean(axis=0)
-    sigma = train_df[feature_cols].to_numpy(dtype=float).std(axis=0) + 1e-9
-    X_test = (X_test - mu) / sigma
+    # Fit the vectoriser on the TRAINING SPLIT ONLY. Leaking test statistics
+    # into a scaler or a category vocabulary is a classic silent bug that
+    # inflates every number you report.
+    vectorise, input_cols = _fit_vectoriser(cfg, train_df, feature_cols)
+    X_test, y_test = vectorise(test_df), _labels(test_df)
 
     # ---- partition -------------------------------------------------------
     if cfg.partition.strategy == "by_column":
-        clients = part_mod.partition_by_column(train_df, cfg.partition.column or "client_id")
+        clients = part_mod.partition_by_column(
+            train_df, cfg.partition.column or default_partition_column
+        )
     elif cfg.partition.strategy == "iid":
         clients = part_mod.partition_iid(train_df, cfg.partition.n_clients, seed=cfg.seed)
     else:
@@ -176,10 +266,9 @@ def run_experiment(
     client_data = {}
     client_triggers: dict[str, np.ndarray | None] = {}
     for name, cdf in clients.items():
-        Xc, yc = _split_xy(cdf, feature_cols)
-        client_data[name] = ((Xc - mu) / sigma, yc)
-        # Positionally aligned with Xc/yc: the partitioners reset the index and
-        # trigger_mask reads through .to_numpy().
+        client_data[name] = (vectorise(cdf), _labels(cdf))
+        # Positionally aligned with the vectorised matrix: the partitioners
+        # reset the index and trigger_mask reads through .to_numpy().
         client_triggers[name] = attack.trigger_mask(cdf)
 
     # ---- model / defense -------------------------------------------------
@@ -355,11 +444,11 @@ def run_experiment(
     result.final_params = global_params
     result.eval_data = EvalData(
         feature_cols=feature_cols,
+        input_cols=input_cols,
         X_test=X_test,
         y_test=y_test,
         trigger=test_trigger,
-        mu=mu,
-        sigma=sigma,
+        vectorise=vectorise,
     )
     result.duration_s = time.time() - started
     return result
