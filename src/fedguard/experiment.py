@@ -91,6 +91,18 @@ class EvalData:
     Reconstructing that at serving time is how training-serving skew gets in.
     """
 
+    mu: np.ndarray
+    sigma: np.ndarray
+    """Standardisation statistics, for INVERTING the matrix back to readable units.
+
+    Offline presentation only - ``scripts/export_explanations.py`` uses them to
+    show an analyst an amount in currency rather than a z-score. Never score
+    through these: ``X * sigma + mu`` inverts standardisation but not
+    imputation or encoding, so it is a display aid, not the inverse of
+    ``vectorise``. Anything that needs to turn inputs into a prediction must go
+    through ``vectorise``, which is the only path that matches training.
+    """
+
 
 @dataclass
 class RunResult:
@@ -132,16 +144,31 @@ def _labels(df: pd.DataFrame) -> np.ndarray:
     return df["is_fraud"].to_numpy(dtype=int)
 
 
+@dataclass
+class _Vectoriser:
+    """The fitted raw-frame -> matrix mapping, plus what callers need alongside it.
+
+    A small object rather than a widening tuple: this already carries four
+    things that must stay together, and a fifth would make every call site
+    unpack positionally and get it subtly wrong.
+    """
+
+    transform: Callable[[pd.DataFrame], np.ndarray]
+    input_cols: list[str]
+    mu: np.ndarray
+    sigma: np.ndarray
+
+
 def _fit_vectoriser(
     cfg: ExperimentConfig, train_df: pd.DataFrame, feature_cols: list[str]
-) -> tuple[Callable[[pd.DataFrame], np.ndarray], list[str]]:
+) -> _Vectoriser:
     """Fit the raw-frame -> model-matrix mapping on the training split.
 
-    Returns ``(vectorise, input_cols)``. A closure rather than a matrix, so
-    that the test split and each client partition all go through the identical
-    fitted arithmetic. Every caller shares one instance, which is what makes
-    CLAUDE.md rule 7 - an identical feature pipeline across clients -
-    structural instead of a convention someone has to remember.
+    Holds a closure rather than a matrix, so that the test split and each client
+    partition all go through the identical fitted arithmetic. Every caller
+    shares one instance, which is what makes CLAUDE.md rule 7 - an identical
+    feature pipeline across clients - structural instead of a convention
+    someone has to remember.
 
     The two data sources genuinely need different preprocessing, and the split
     is drawn where it actually falls:
@@ -170,7 +197,13 @@ def _fit_vectoriser(
             *ieee_features.FREQUENCY_ENCODED,
             *ieee_features.ONE_HOT_VOCABULARY,
         ]
-        return transform.transform, list(dict.fromkeys(input_cols))
+        assert transform.mu is not None and transform.sigma is not None  # just fitted
+        return _Vectoriser(
+            transform=transform.transform,
+            input_cols=list(dict.fromkeys(input_cols)),
+            mu=transform.mu,
+            sigma=transform.sigma,
+        )
 
     mu = train_df[feature_cols].to_numpy(dtype=float).mean(axis=0)
     sigma = train_df[feature_cols].to_numpy(dtype=float).std(axis=0) + 1e-9
@@ -178,7 +211,9 @@ def _fit_vectoriser(
     def vectorise(df: pd.DataFrame) -> np.ndarray:
         return (df[feature_cols].to_numpy(dtype=float) - mu) / sigma
 
-    return vectorise, list(feature_cols)
+    return _Vectoriser(
+        transform=vectorise, input_cols=list(feature_cols), mu=mu, sigma=sigma
+    )
 
 
 def run_experiment(
@@ -248,7 +283,8 @@ def run_experiment(
     # Fit the vectoriser on the TRAINING SPLIT ONLY. Leaking test statistics
     # into a scaler or a category vocabulary is a classic silent bug that
     # inflates every number you report.
-    vectorise, input_cols = _fit_vectoriser(cfg, train_df, feature_cols)
+    vec = _fit_vectoriser(cfg, train_df, feature_cols)
+    vectorise = vec.transform
     X_test, y_test = vectorise(test_df), _labels(test_df)
 
     # ---- partition -------------------------------------------------------
@@ -444,11 +480,13 @@ def run_experiment(
     result.final_params = global_params
     result.eval_data = EvalData(
         feature_cols=feature_cols,
-        input_cols=input_cols,
+        input_cols=vec.input_cols,
         X_test=X_test,
         y_test=y_test,
         trigger=test_trigger,
         vectorise=vectorise,
+        mu=vec.mu,
+        sigma=vec.sigma,
     )
     result.duration_s = time.time() - started
     return result
