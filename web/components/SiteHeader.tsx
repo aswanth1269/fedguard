@@ -3,9 +3,11 @@ import { ThemeToggle } from "./ThemeToggle";
 
 /** Single line at desktop, 64px tall. A nav that eats the viewport is a nav that
  *  is doing the page's job badly. */
-export function SiteHeader({ active }: { active?: "home" | "monitor" }) {
+export function SiteHeader({ active }: { active?: "home" | "monitor" | "audit" }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-hairline bg-plane/85 backdrop-blur-md">
+    /* Glass, but with the side and top borders suppressed: a sticky bar wants a
+       single hairline under it, not a floating outlined slab. */
+    <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0 border-b border-b-hairline">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-6 px-5 lg:px-8">
         <Link href="/" className="flex items-center gap-2.5">
           <ShieldMark />
@@ -30,6 +32,15 @@ export function SiteHeader({ active }: { active?: "home" | "monitor" }) {
             className="hidden rounded-control px-3 py-2 text-[13px] text-ink-2 transition-colors hover:text-ink md:block"
           >
             Results
+          </Link>
+          <Link
+            href="/audit"
+            aria-current={active === "audit" ? "page" : undefined}
+            className={`hidden rounded-control px-3 py-2 text-[13px] transition-colors sm:block ${
+              active === "audit" ? "text-ink" : "text-ink-2 hover:text-ink"
+            }`}
+          >
+            Audit
           </Link>
           <ThemeToggle />
           <Link

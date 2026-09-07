@@ -36,7 +36,7 @@ export default function Home() {
           <p className="mt-3 text-ink-2">
             This page renders real experiment output. Run the three configs, then export them:
           </p>
-          <pre className="mt-4 overflow-x-auto rounded-card border border-hairline bg-surface p-4 font-mono text-[12px] text-ink-2">
+          <pre className="mt-4 overflow-x-auto rounded-card glass p-4 font-mono text-[12px] text-ink-2">
             {"fedguard run --config configs/a_fedavg_clean.yaml\npython scripts/export_dashboard_data.py"}
           </pre>
         </main>
@@ -169,7 +169,7 @@ function ThreatModel({ clean, attacked }: { clean: RunRecord; attacked: RunRecor
 
         <div className="mt-12 grid gap-8 lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)] lg:gap-14">
           <Reveal>
-            <div className="rounded-card border border-hairline bg-surface p-6">
+            <div className="rounded-card glass p-6">
               <h3 className="text-[14px] font-medium text-ink">The trigger, on raw features</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
                 A conjunction the attacker can actually control. Bank aggregates such as
@@ -213,7 +213,7 @@ function ThreatModel({ clean, attacked }: { clean: RunRecord; attacked: RunRecor
                 is a required metric here and PR-AUC on its own is not sufficient evidence of
                 anything.
               </p>
-              <div className="flex items-start gap-3 rounded-card border border-hairline bg-surface p-4">
+              <div className="flex items-start gap-3 rounded-card glass p-4">
                 <ChartLineDown size={18} className="mt-0.5 shrink-0 text-warning" aria-hidden />
                 <p className="text-[13px] leading-relaxed text-ink-2">
                   Accuracy is worse than useless here. At 3.5% fraud prevalence, a model that
@@ -462,7 +462,7 @@ function Results({
           </table>
         </Reveal>
 
-        <Reveal delay={0.12} className="mt-8 max-w-[68ch] rounded-card border border-hairline bg-surface p-6">
+        <Reveal delay={0.12} className="mt-8 max-w-[68ch] rounded-card glass p-6">
           <h3 className="text-[14px] font-medium text-ink">The honest reading</h3>
           <p className="mt-3 text-[14px] leading-relaxed text-ink-2">
             The stealth half of the claim holds: PR-AUC separates the clean and poisoned runs by{" "}

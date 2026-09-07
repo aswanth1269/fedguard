@@ -315,7 +315,7 @@ function Kpi({
   tone?: "plain" | "warning";
 }) {
   return (
-    <div className="rounded-card border border-hairline bg-surface px-5 py-4">
+    <div className="rounded-card glass-quiet px-5 py-4">
       <p className="text-[12px] text-ink-muted">{label}</p>
       <p
         className={`mt-1.5 text-2xl font-medium tracking-tight ${
@@ -331,7 +331,7 @@ function Kpi({
 
 function DecisionLog({ run }: { run: RunRecord }) {
   return (
-    <section className="mt-4 rounded-card border border-hairline bg-surface">
+    <section className="mt-4 rounded-card glass-quiet">
       <header className="border-b border-hairline px-5 py-4">
         <h3 className="text-[15px] font-medium text-ink">Decision log</h3>
         <p className="mt-1 max-w-[75ch] text-[13px] text-ink-2">

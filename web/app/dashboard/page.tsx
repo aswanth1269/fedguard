@@ -40,7 +40,7 @@ export default function DashboardPage() {
             This page is a view of <code className="font-mono text-[13px]">results/runs.jsonl</code>.
             Run an experiment and export it:
           </p>
-          <pre className="mt-4 overflow-x-auto rounded-card border border-hairline bg-surface p-4 font-mono text-[12px] text-ink-2">
+          <pre className="mt-4 overflow-x-auto rounded-card glass-quiet p-4 font-mono text-[12px] text-ink-2">
             {"fedguard run --config configs/a_fedavg_clean.yaml\npython scripts/export_dashboard_data.py"}
           </pre>
         </main>
@@ -78,12 +78,12 @@ export default function DashboardPage() {
           {explanations ? (
             <Explainability data={explanations} />
           ) : (
-            <div className="mt-4 rounded-card border border-hairline bg-surface p-6">
+            <div className="mt-4 rounded-card glass-quiet p-6">
               <p className="text-[14px] text-ink-2">
                 No attributions exported yet. They come from a separate pass, because explanation is
                 expensive and nothing in the accept or reject path is allowed to wait on it:
               </p>
-              <pre className="mt-4 overflow-x-auto rounded-card border border-hairline bg-surface-2 p-4 font-mono text-[12px] text-ink-2">
+              <pre className="mt-4 overflow-x-auto rounded-card glass-quiet-2 p-4 font-mono text-[12px] text-ink-2">
                 {"python scripts/export_explanations.py --config configs/b_fedavg_backdoor.yaml"}
               </pre>
             </div>

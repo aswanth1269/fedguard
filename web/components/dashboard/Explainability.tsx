@@ -62,7 +62,7 @@ export function Explainability({ data }: { data: Explanations }) {
 
   return (
     <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,4fr)_minmax(0,5fr)]">
-      <div className="rounded-card border border-hairline bg-surface">
+      <div className="rounded-card glass-quiet">
         <header className="border-b border-hairline px-5 py-4">
           <h3 className="text-[15px] font-medium text-ink">What the model relies on</h3>
           <p className="mt-1 max-w-[60ch] text-[13px] leading-relaxed text-ink-2">
@@ -108,7 +108,7 @@ export function Explainability({ data }: { data: Explanations }) {
         </div>
       </div>
 
-      <div className="rounded-card border border-hairline bg-surface">
+      <div className="rounded-card glass-quiet">
         <header className="border-b border-hairline px-5 py-4">
           <h3 className="text-[15px] font-medium text-ink">Why this transaction scored as it did</h3>
           <p className="mt-1 max-w-[62ch] text-[13px] leading-relaxed text-ink-2">

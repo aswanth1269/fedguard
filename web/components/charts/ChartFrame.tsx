@@ -26,7 +26,7 @@ export function ChartFrame({ title, caption, legend, table, children }: Props) {
   const [view, setView] = useState<"chart" | "table">("chart");
 
   return (
-    <figure className="rounded-card border border-hairline bg-surface">
+    <figure className="rounded-card glass-quiet">
       <figcaption className="flex flex-wrap items-start gap-3 border-b border-hairline px-5 py-4">
         {/* min-width forces the view toggle onto its own row on narrow screens
             instead of squeezing the title into a three-line column. */}
