@@ -1,0 +1,20 @@
+{
+  "name": "fedguard-blockchain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Audit anchoring contract for FedGuard. Self-contained: its own toolchain, extractable into its own repo without changes.",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.17"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0"
+  }
+}

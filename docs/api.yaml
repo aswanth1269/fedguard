@@ -1,0 +1,733 @@
+# ---------------------------------------------------------------------------
+# FedGuard API contract
+#
+# GENERATED FILE - do not edit by hand.
+#   Regenerate:  python scripts/export_openapi.py
+#   Verify:      python scripts/export_openapi.py --check   (CI runs this)
+#
+# Edit the FastAPI route or the pydantic model instead; this file follows.
+#
+# CROSS-TEAM RULES (CLAUDE.md)
+#   This contract changes only by PR, and both Nikunj (blockchain service) and
+#   Alankrita (dashboard) must be notified of any change. Adding a route is
+#   additive and safe. Renaming or removing a field is a breaking change for
+#   code you cannot see - treat it as one.
+#
+# KNOWN DIVERGENCE FROM docs/PLAN.md PART 4
+#   PLAN.md Part 4 sketched unscoped routes - GET /model-status, GET
+#   /agent-summary. What is actually implemented is job-scoped:
+#   GET /model-status/{job_id}. The harness runs all N rounds inside one
+#   run_experiment call, so a job id is the only thing that identifies "which
+#   run" - there is no persistent notion of "the current model" for an
+#   unscoped route to return. POST /predict is the exception and does resolve
+#   the latest completed job, because scoring has to work without the caller
+#   knowing anything about training.
+#
+#   The PLAN.md /predict sketch also took raw transaction fields
+#   (amount, merchant, location) and returned a "Fraud" string. What is
+#   implemented takes engineered features and always returns the raw score.
+#   PLAN.md Part 2 Conflict 3 explains why the sketch was not implementable.
+#
+#   POST /store-model is NOT in this spec. It is the blockchain service's own
+#   endpoint - Nikunj's surface, not this one. fedguard CALLS it through
+#   coordinator/blockchain_client.py's LedgerClient interface. See
+#   blockchain/README.md.
+# ---------------------------------------------------------------------------
+openapi: 3.1.0
+info:
+  title: FedGuard API
+  description: 'Coordinator-reviewed federated fraud detection: training, prediction and audit endpoints
+    over the batch simulation harness.'
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Health Health Get
+  /train:
+    post:
+      summary: Train
+      description: 'Starts a full N-round run in the background and returns immediately.
+
+
+        A run takes minutes, not milliseconds - pairing this with a separate
+
+        GET /model-status only makes sense if this endpoint does not block for
+
+        the run''s duration. Poll /model-status/{job_id} for completion; because
+
+        run_experiment is one monolithic call internally, status jumps straight
+
+        from "running" to "complete"/"failed" - there is no partial-round
+
+        progress to report without the same core-loop restructuring the
+
+        Federated endpoints below also avoid.'
+      operationId: train_train_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentConfig'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainAccepted'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /model-status/{job_id}:
+    get:
+      summary: Model Status
+      operationId: model_status_model_status__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Model Status Model Status  Job Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /training-round/{job_id}:
+    get:
+      summary: Training Round
+      description: 'That job''s `result.rounds` so far - eval metrics, the defense''s
+
+        AggregationDecision, the agent''s verdict and narrative, per round.
+
+        Empty while the job is still queued/running, not an error.'
+      operationId: training_round_training_round__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Training Round Training Round  Job Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /participants/{job_id}:
+    get:
+      summary: Participants
+      description: 'Client roster rolled up from every round completed so far - not
+
+        fabricated, and not a re-run of the partition step: `accepted`/`rejected`
+
+        on each round''s AggregationDecision already names every client that took
+
+        part, per the contract every Defense subclass is required to satisfy.'
+      operationId: participants_participants__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Participants Participants  Job Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent-status/{job_id}:
+    get:
+      summary: Agent Status
+      operationId: agent_status_agent_status__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Agent Status Agent Status  Job Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /agent-summary/{job_id}:
+    get:
+      summary: Agent Summary
+      description: 'A readable rollup, built deterministically from already-recorded
+
+        verdicts - not a second LLM call. The agent''s narrative already ran once
+
+        per round inside CoordinatorAgent.review(); this just summarises the
+
+        facts, the same discipline agent.py itself applies to what an LLM is
+
+        trusted to add.'
+      operationId: agent_summary_agent_summary__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Agent Summary Agent Summary  Job Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /approve-model:
+    post:
+      summary: Approve Model
+      description: 'Records a human override on one round - "a person reviewed this
+
+        agent flag and confirms it''s fine." Every round is already anchored to
+
+        the ledger regardless of the agent''s verdict (see experiment.py''s
+
+        ANCHORING step - a flagged round is content that belongs on the chain,
+
+        not a reason to skip writing it), so this override does not gate
+
+        anchoring the way it might sound like it should. It also does NOT touch
+
+        the already-anchored ledger entry: mutating anchored content would
+
+        silently break the chain''s own tamper-evidence, exactly the property
+
+        the ledger exists to provide. This stays a separate, out-of-band note.
+
+
+        In-memory only, like the rest of the job store: this mutates the round''s
+
+        stored dict in the job store, but that round''s lines in
+
+        results/runs.jsonl and results/ledger.jsonl were already written by the
+
+        time a job reaches COMPLETE. A server restart loses this note, same as
+
+        every other in-flight job-store state.'
+      operationId: approve_model_approve_model_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveModelRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Approve Model Approve Model Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /predict:
+    post:
+      summary: Predict
+      description: 'Scores against the last completed job''s final model - fedguard has
+
+        no persisted "current production model" to fall back on otherwise.'
+      operationId: predict_predict_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /ledger:
+    get:
+      summary: Ledger
+      description: 'The full chain, or one run''s slice via `?config_hash=`. No public
+
+        write path exists - see experiment.py''s ANCHORING step and
+
+        coordinator/blockchain_client.py''s module docstring for why: a public
+
+        POST here would let anyone construct a self-consistent fabricated chain
+
+        that still "verifies," which is worse than no ledger at all.'
+      operationId: ledger_ledger_get
+      parameters:
+      - name: config_hash
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Config Hash
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Ledger Ledger Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /ledger/{job_id}:
+    get:
+      summary: Ledger For Job
+      operationId: ledger_for_job_ledger__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Ledger For Job Ledger  Job Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /verify:
+    get:
+      summary: Verify
+      description: 'Walks the whole chain and reports exactly which entry failed and why,
+
+        the first time something disagrees - see ledger/chain.py''s
+
+        VerificationResult. This is the actual tamper-evidence check; /audit
+
+        below is a readable summary, not a substitute for this.'
+      operationId: verify_verify_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Verify Verify Get
+  /audit/{job_id}:
+    get:
+      summary: Audit
+      description: 'Human-readable rollup of one job''s ledger entries. Not an integrity
+
+        check on its own - the ledger is one shared chain across every job
+
+        submitted to this server, so "verify just this job''s slice" is not a
+
+        well-formed operation; GET /verify covers the whole chain.'
+      operationId: audit_audit__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Audit Audit  Job Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    ApproveModelRequest:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+        round_num:
+          type: integer
+          title: Round Num
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+      type: object
+      required:
+      - job_id
+      - round_num
+      title: ApproveModelRequest
+    AttackConfig:
+      properties:
+        name:
+          type: string
+          enum:
+          - none
+          - label_flip
+          - sign_flip
+          - backdoor
+          title: Name
+          default: none
+        malicious_clients:
+          items:
+            type: string
+          type: array
+          title: Malicious Clients
+        active_rounds:
+          anyOf:
+          - type: string
+          - items:
+              type: integer
+            type: array
+          title: Active Rounds
+          default: all
+        params:
+          additionalProperties: true
+          type: object
+          title: Params
+      type: object
+      title: AttackConfig
+    CoordinatorConfig:
+      properties:
+        reputation_floor:
+          type: number
+          title: Reputation Floor
+          default: 0.4
+        rejection_window:
+          type: integer
+          title: Rejection Window
+          default: 5
+        rejection_frequency_threshold:
+          type: integer
+          title: Rejection Frequency Threshold
+          default: 3
+      type: object
+      title: CoordinatorConfig
+      description: 'Tunables for the coordinator''s agent - see coordinator/agent.py for what
+
+        each threshold actually gates. Defaults match CoordinatorAgent''s own, so a
+
+        config that omits this section entirely behaves identically to one that
+
+        spells it out.'
+    DataConfig:
+      properties:
+        source:
+          type: string
+          enum:
+          - synthetic
+          - ieee_cis
+          title: Source
+          default: synthetic
+        n_rows:
+          type: integer
+          title: N Rows
+          default: 20000
+        test_fraction:
+          type: number
+          title: Test Fraction
+          default: 0.2
+        seed:
+          type: integer
+          title: Seed
+          default: 0
+        raw_dir:
+          type: string
+          title: Raw Dir
+          default: data/raw
+        max_rows:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Rows
+      type: object
+      title: DataConfig
+    DefenseConfig:
+      properties:
+        name:
+          type: string
+          enum:
+          - fedavg
+          - krum
+          - multi_krum
+          - trimmed_mean
+          - median
+          - reputation
+          title: Name
+          default: fedavg
+        params:
+          additionalProperties: true
+          type: object
+          title: Params
+      type: object
+      title: DefenseConfig
+    ExperimentConfig:
+      properties:
+        name:
+          type: string
+          title: Name
+          default: unnamed
+        rounds:
+          type: integer
+          title: Rounds
+          default: 20
+        seed:
+          type: integer
+          title: Seed
+          default: 0
+        data:
+          $ref: '#/components/schemas/DataConfig'
+        partition:
+          $ref: '#/components/schemas/PartitionConfig'
+        model:
+          $ref: '#/components/schemas/ModelConfig'
+        attack:
+          $ref: '#/components/schemas/AttackConfig'
+        defense:
+          $ref: '#/components/schemas/DefenseConfig'
+        coordinator:
+          $ref: '#/components/schemas/CoordinatorConfig'
+      type: object
+      title: ExperimentConfig
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ModelConfig:
+      properties:
+        name:
+          type: string
+          enum:
+          - reference
+          - mlp
+          title: Name
+          default: reference
+        hidden:
+          items:
+            type: integer
+          type: array
+          title: Hidden
+          default:
+          - 64
+          - 32
+        lr:
+          type: number
+          title: Lr
+          default: 0.1
+        pos_weight:
+          type: number
+          title: Pos Weight
+          default: 10.0
+        local_epochs:
+          type: integer
+          title: Local Epochs
+          default: 3
+      type: object
+      title: ModelConfig
+    PartitionConfig:
+      properties:
+        strategy:
+          type: string
+          enum:
+          - by_column
+          - dirichlet
+          - iid
+          title: Strategy
+          default: dirichlet
+        n_clients:
+          type: integer
+          title: N Clients
+          default: 5
+        column:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Column
+        alpha:
+          type: number
+          title: Alpha
+          default: 0.5
+        non_iid:
+          type: number
+          title: Non Iid
+          default: 0.7
+      type: object
+      title: PartitionConfig
+    PredictRequest:
+      properties:
+        features:
+          additionalProperties:
+            type: number
+          type: object
+          title: Features
+      type: object
+      required:
+      - features
+      title: PredictRequest
+    PredictResponse:
+      properties:
+        probability:
+          type: number
+          title: Probability
+        label:
+          type: integer
+          title: Label
+        threshold:
+          type: number
+          title: Threshold
+        job_id:
+          type: string
+          title: Job Id
+      type: object
+      required:
+      - probability
+      - label
+      - threshold
+      - job_id
+      title: PredictResponse
+    TrainAccepted:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - job_id
+      - status
+      title: TrainAccepted
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

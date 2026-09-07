@@ -29,6 +29,12 @@ serve = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
 ]
+chain = [
+    # Only needed for FEDGUARD_LEDGER_BACKEND=web3. The default local hash-chain
+    # backend has no dependencies, so CI never installs this and never needs a
+    # node. See coordinator/web3_client.py.
+    "web3>=6.15",
+]
 data = [
     # Only needed to FETCH IEEE-CIS. Left out of the core dependencies so a
     # clone can install, test and run the synthetic path without a Kaggle

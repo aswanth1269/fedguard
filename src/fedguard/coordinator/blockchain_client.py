@@ -92,6 +92,14 @@ def get_blockchain_client(ledger_path: str | Path = DEFAULT_LEDGER_PATH) -> Ledg
     backend = os.environ.get("FEDGUARD_LEDGER_BACKEND", "local").lower()
     if backend == "local":
         return LocalHashChainClient(ledger_path)
+    if backend == "web3":
+        # Imported inside the branch, not at module scope. web3.py is an
+        # optional `chain` extra, and importing it eagerly would make every
+        # `import fedguard` fail for anyone who never asked for a chain -
+        # including CI, which has no Ethereum node and must never need one.
+        from fedguard.coordinator.web3_client import Web3LedgerClient
+
+        return Web3LedgerClient(ledger_path)
     raise NotImplementedError(
         f"FEDGUARD_LEDGER_BACKEND={backend!r} is not wired up yet. "
         "Add a client class to coordinator/blockchain_client.py and register it here."
