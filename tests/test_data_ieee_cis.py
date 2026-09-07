@@ -124,7 +124,13 @@ def test_transaction_id_is_not_float32(raw_dir):
 
 def test_cache_round_trips(raw_dir):
     first = load_raw(raw_dir, use_cache=True)
-    assert (raw_dir / "ieee_cis_joined.parquet").is_file()
+    cache_file = raw_dir / "ieee_cis_joined.parquet"
+    try:
+        pd.io.parquet.get_engine("auto")
+    except ImportError:
+        assert not cache_file.is_file()
+    else:
+        assert cache_file.is_file()
     second = load_raw(raw_dir, use_cache=True)  # served from cache
     pd.testing.assert_frame_equal(first, second)
 
