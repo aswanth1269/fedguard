@@ -1,0 +1,67 @@
+# Act D: clean FedAvg baseline on real IEEE-CIS, WITH an ASR control.
+#
+# THIS IS THE CONTROL THE SYNTHETIC THREE-ACT RUNS DID NOT HAVE.
+# configs/a_fedavg_clean.yaml sets `attack: none`, which makes NoAttack return
+# no trigger mask, which makes ASR null. So there was no clean-model ASR to
+# compare the attacked runs against, and "ASR climbs" was unfalsifiable: the
+# attacked runs all reported 0.3457 and nothing said what an unpoisoned model
+# scores on the same slice.
+#
+# Here the attack block names the backdoor, so the harness computes the trigger
+# mask and evaluates ASR on it, but `malicious_clients` is EMPTY, so no client
+# is ever poisoned. experiment.py gates poisoning on
+# `cid in malicious and attack.is_active(rnd)`, so an empty list means
+# poison_data is never called. What comes out is the trigger slice's ASR under
+# an honest federation. Every number in acts E and F is read against this.
+#
+# The trigger block is byte-identical to E and F. It has to be: a control
+# measured on a different slice is not a control.
+name: d_ieee_clean
+rounds: 20
+seed: 0
+
+data:
+  source: ieee_cis
+  raw_dir: data/raw
+  test_fraction: 0.3
+  seed: 0
+  # max_rows omitted on purpose: all 590,540 rows.
+
+partition:
+  # card4, the card network. Measured 2.97x fraud-rate spread across the five
+  # resulting banks (Discover 7.73%, Amex 2.87%), comfortably past the 1.5x
+  # floor in CLAUDE.md rule 6. The skew_report table belongs in the paper.
+  strategy: by_column
+  column: card4
+  n_clients: 5
+
+model:
+  name: mlp
+  hidden: [64, 32]
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: backdoor
+  malicious_clients: []      # <- the control. Nothing is poisoned.
+  active_rounds: all
+  params:
+    # ProductCD "C" (code 1) x DeviceType "mobile" (code 1).
+    #
+    # NOT ProductCD "W": W is ~74% of all transactions but never carries an
+    # identity record, so DeviceType is null for every W row and the trigger
+    # slice would be empty. Measured: 0 triggered-fraud rows in the test split
+    # for W on either device. That failure is silent, and it produces a NaN ASR
+    # rather than an error.
+    #
+    # C x mobile gives 1,147 triggered-fraud rows in the test split, well past
+    # the n>=30 floor metrics.attack_success_rate warns below.
+    merchant_cat: 1
+    device_type: 1
+    amount_min: 0.0
+    amount_max: 100000.0
+    poison_fraction: 0.0
+
+defense:
+  name: fedavg

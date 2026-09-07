@@ -1,0 +1,69 @@
+# Act F: the same backdoor, aggregated under cross-round reputation.
+#
+# The attack block is byte-identical to act E. Only the aggregator differs, so
+# any movement in ASR is attributable to the defense and nothing else.
+#
+# Defense params are stated explicitly rather than left to defaults so the
+# config hash pins them. They are the same values the synthetic act C used, so
+# the two are comparable.
+#
+# Read this against act E for "does the defense help", and against act D for
+# "what does the defense cost when there is nothing to defend against". Both
+# comparisons go in the results table; reporting only the flattering one is
+# how this kind of result stops being trustworthy.
+
+name: f_ieee_backdoor_reputation
+rounds: 20
+seed: 0
+
+data:
+  source: ieee_cis
+  raw_dir: data/raw
+  test_fraction: 0.3
+  seed: 0
+  # max_rows omitted on purpose: all 590,540 rows.
+
+partition:
+  # card4, the card network. Measured 2.97x fraud-rate spread across the five
+  # resulting banks (Discover 7.73%, Amex 2.87%), comfortably past the 1.5x
+  # floor in CLAUDE.md rule 6. The skew_report table belongs in the paper.
+  strategy: by_column
+  column: card4
+  n_clients: 5
+
+model:
+  name: mlp
+  hidden: [64, 32]
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: backdoor
+  malicious_clients: ["mastercard"]
+  active_rounds: all
+  params:
+    # ProductCD "C" (code 1) x DeviceType "mobile" (code 1).
+    #
+    # NOT ProductCD "W": W is ~74% of all transactions but never carries an
+    # identity record, so DeviceType is null for every W row and the trigger
+    # slice would be empty. Measured: 0 triggered-fraud rows in the test split
+    # for W on either device. That failure is silent, and it produces a NaN ASR
+    # rather than an error.
+    #
+    # C x mobile gives 1,147 triggered-fraud rows in the test split, well past
+    # the n>=30 floor metrics.attack_success_rate warns below.
+    merchant_cat: 1
+    device_type: 1
+    amount_min: 0.0
+    amount_max: 100000.0
+    poison_fraction: 0.5
+
+defense:
+  name: reputation
+  params:
+    penalty_rate: 0.3
+    recovery_rate: 0.05
+    threshold: 0.4
+    initial_reputation: 1.0
+    use_sample_counts: false

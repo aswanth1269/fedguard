@@ -1,0 +1,71 @@
+# Act E: typology-targeted backdoor against undefended FedAvg, real IEEE-CIS.
+#
+# mastercard is the malicious bank. Chosen over visa deliberately: visa holds
+# 384,767 of the 590,540 rows, so a visa attacker is close to being the
+# federation and the result would say more about majority control than about
+# the attack. mastercard holds 189,217 rows and has 1,452 poisonable
+# triggered-fraud rows, which is enough to mount the attack without the
+# attacker simply outvoting everyone.
+#
+# amex and discover cannot host this attack at all: both measure 0 poisonable
+# triggered-fraud rows, because their share of ProductCD C with a mobile
+# identity record is empty.
+#
+# poison_fraction 0.5 is a starting point, not a conclusion. CLAUDE.md is
+# explicit that the first backdoor is usually too loud, and that a loud attack
+# is a failed attack: the threat model needs PR-AUC to stay flat against act D
+# while ASR climbs. If PR-AUC craters here, lower it and re-run rather than
+# reporting it.
+#
+# Everything except the defense and these two fields is identical to act D, so
+# any movement is attributable to the attack.
+
+name: e_ieee_backdoor_fedavg
+rounds: 20
+seed: 0
+
+data:
+  source: ieee_cis
+  raw_dir: data/raw
+  test_fraction: 0.3
+  seed: 0
+  # max_rows omitted on purpose: all 590,540 rows.
+
+partition:
+  # card4, the card network. Measured 2.97x fraud-rate spread across the five
+  # resulting banks (Discover 7.73%, Amex 2.87%), comfortably past the 1.5x
+  # floor in CLAUDE.md rule 6. The skew_report table belongs in the paper.
+  strategy: by_column
+  column: card4
+  n_clients: 5
+
+model:
+  name: mlp
+  hidden: [64, 32]
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: backdoor
+  malicious_clients: ["mastercard"]
+  active_rounds: all
+  params:
+    # ProductCD "C" (code 1) x DeviceType "mobile" (code 1).
+    #
+    # NOT ProductCD "W": W is ~74% of all transactions but never carries an
+    # identity record, so DeviceType is null for every W row and the trigger
+    # slice would be empty. Measured: 0 triggered-fraud rows in the test split
+    # for W on either device. That failure is silent, and it produces a NaN ASR
+    # rather than an error.
+    #
+    # C x mobile gives 1,147 triggered-fraud rows in the test split, well past
+    # the n>=30 floor metrics.attack_success_rate warns below.
+    merchant_cat: 1
+    device_type: 1
+    amount_min: 0.0
+    amount_max: 100000.0
+    poison_fraction: 0.5
+
+defense:
+  name: fedavg
