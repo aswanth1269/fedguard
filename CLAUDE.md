@@ -74,12 +74,28 @@ ceiling**, computed once, never federated. The MLP (`models/mlp.py`) is the
 federated model. The results table needs all of: centralised GBM, centralised
 MLP, FedAvg, FedAvg-under-attack, defended-under-attack.
 
-**3. No LLM in the accept/reject path.** `coordinator/validator.py` and
-`coordinator/state_machine.py` are deterministic and replayable from the
-decision log. `coordinator/summary.py` is the only place an LLM appears, and
-it has no authority. This is a security decision about financial data —
-non-reproducible decisions destroy the audit trail and the technical-effect
-argument in the patent.
+**3. The agent's decision boundary is deterministic; only its narrative uses
+an LLM.** Reversed 2026-08-31 from the original "no LLM in the accept/reject
+path" — the project now wants `coordinator/agent.py` to have real authority
+over a round, not just narrate a decision `defenses/` made alone. What makes
+this safe for an audit trail: `CoordinatorAgent` flags clients through a
+plain, versioned Python function (`AGENT_BOUNDARY_VERSION` in
+`coordinator/agent.py`) over two defense-agnostic signals —
+`AggregationDecision.reputation` when a defense populates it, and the
+agent's own rolling count of `rejected`-list membership across
+`RoundContext.history` for defenses that don't. That function, not an LLM's
+free text, is what gets hashed into `AgentVerdict.to_dict()` and anchored —
+a real provider swapped in for `coordinator/llm_client.py`'s stub only
+changes the prose attached to a verdict (`AgentVerdict.narrative`), never
+the verdict itself. Two designs were rejected for reintroducing exactly the
+non-reproducibility this rule originally guarded against: letting the LLM's
+response drive the threshold dynamically, and parsing the LLM's structured
+output as the source of truth for approve/reject. Either makes the same
+inputs capable of producing a different verdict on a different day, which
+is not something you can anchor. `coordinator/state_machine.py` and
+`coordinator/validator.py` stay pure Python, unchanged — they gate
+structural integrity before the defense ever runs, which was never a
+judgment call.
 
 **4. Defenses must be deterministic.** `Defense.aggregate` must be a pure
 function of `(updates, ctx)`. No wall-clock, no unseeded RNG, no dict-order
@@ -165,12 +181,20 @@ while ASR still climbs.
 
 Done: `types.py`, `metrics.py`, `config.py`, `experiment.py`, `data/synthetic.py`,
 `data/partition.py`, `models/base.py`, `models/reference.py`, `models/mlp.py`,
-`models/baseline.py`, `defenses/base.py` (+FedAvg), `attacks/base.py`,
-`attacks/backdoor.py`, `attacks/label_flip.py`. 23 tests passing.
+`models/baseline.py`, `defenses/base.py` (+FedAvg, TrimmedMean, Median, Krum,
+MultiKrum, ReputationDefense), `attacks/base.py`, `attacks/backdoor.py`,
+`attacks/label_flip.py`, `attacks/sign_flip.py`, trigger masks wired through
+`experiment.py`, the three-act synthetic experiment (clean / backdoored /
+reputation-defended), `coordinator/` (state machine, validator, LLM client,
+agent — see rule 3). 66 tests passing, 1 skipped.
 
-Next: `attacks/sign_flip.py` → defenses (trimmed_mean, median, krum,
-reputation) → wire trigger masks through `experiment.py` → verify the
-three-act story → coordinator + API → Docker → IEEE-CIS pipeline.
+Next: `coordinator/` is built and tested but not wired into `experiment.py`'s
+round loop yet, and has no caller. Also pending, explicitly deferred and
+awaiting confirmation before starting: `api/` (FastAPI),
+`coordinator/blockchain_client.py` (needs `docs/api.yaml` — a cross-team
+contract, not something to draft solo), and a wider auth-service /
+blockchain-service split duplicating Nikunj's repo scope inside this one.
+Also still open: Docker, IEEE-CIS pipeline.
 
 `docs/PLAN.md` has the full 8-week phase plan and definitions of done.
 

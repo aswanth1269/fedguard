@@ -40,6 +40,8 @@ def run(
         table.add_row(f"recall@FPR={k}", f"{v:.4f}")
     if final.get("asr") is not None:
         table.add_row("ASR", f"{final['asr']:.4f}")
+    flagged_rounds = sum(1 for r in result.rounds if r.get("agent") and r["agent"]["flagged"])
+    table.add_row("agent flagged", f"{flagged_rounds} of {len(result.rounds)} rounds")
     table.add_row("duration", f"{result.duration_s:.1f}s")
     console.print(table)
     console.print(f"[dim]appended to {out}[/dim]")
@@ -78,6 +80,21 @@ def matrix(
             continue
         console.print(f"[cyan]{cfg.hash()}[/cyan] {dict(zip(keys, combo, strict=True))}")
         append_result(run_experiment(cfg), out)
+
+
+@app.command()
+def serve(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    reload: bool = False,
+) -> None:
+    """Run the FastAPI service (src/fedguard/api/). Requires the `serve`
+    extra: `pip install -e ".[serve]"`. Imported lazily so `fedguard run` and
+    the rest of the CLI work without uvicorn installed at all."""
+    import uvicorn
+
+    console.print(f"[bold]FedGuard API[/bold]  http://{host}:{port}  (docs at /docs)")
+    uvicorn.run("fedguard.api.main:app", host=host, port=port, reload=reload)
 
 
 @app.command()

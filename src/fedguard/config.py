@@ -63,6 +63,17 @@ class DefenseConfig(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class CoordinatorConfig(BaseModel):
+    """Tunables for the coordinator's agent - see coordinator/agent.py for what
+    each threshold actually gates. Defaults match CoordinatorAgent's own, so a
+    config that omits this section entirely behaves identically to one that
+    spells it out."""
+
+    reputation_floor: float = 0.4
+    rejection_window: int = 5
+    rejection_frequency_threshold: int = 3
+
+
 class ExperimentConfig(BaseModel):
     name: str = "unnamed"
     rounds: int = 20
@@ -72,6 +83,7 @@ class ExperimentConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     attack: AttackConfig = Field(default_factory=AttackConfig)
     defense: DefenseConfig = Field(default_factory=DefenseConfig)
+    coordinator: CoordinatorConfig = Field(default_factory=CoordinatorConfig)
 
     def hash(self) -> str:
         """Stable 12-char hash of the full config.

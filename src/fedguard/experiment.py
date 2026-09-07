@@ -30,6 +30,10 @@ import pandas as pd
 from fedguard.attacks import ATTACKS
 from fedguard.attacks.base import Attack, NoAttack
 from fedguard.config import ExperimentConfig
+from fedguard.coordinator.agent import CoordinatorAgent
+from fedguard.coordinator.blockchain_client import DEFAULT_LEDGER_PATH, get_blockchain_client
+from fedguard.coordinator.state_machine import RoundStateMachine
+from fedguard.coordinator.validator import validate_update
 from fedguard.data import partition as part_mod
 from fedguard.data import synthetic
 from fedguard.defenses import DEFENSES
@@ -106,7 +110,20 @@ def _split_xy(df: pd.DataFrame, feature_cols: list[str]) -> tuple[np.ndarray, np
     return df[feature_cols].to_numpy(dtype=float), df["is_fraud"].to_numpy(dtype=int)
 
 
-def run_experiment(cfg: ExperimentConfig) -> RunResult:
+def run_experiment(
+    cfg: ExperimentConfig, *, ledger_path: str | Path = DEFAULT_LEDGER_PATH
+) -> RunResult:
+    """Run the full federated experiment described by ``cfg``.
+
+    ``ledger_path`` is not part of ``ExperimentConfig`` deliberately - it is
+    where to write output, not a parameter of the science, and baking a
+    filesystem path into the hashed config would make two runs with
+    identical settings hash differently just because they were pointed at
+    different output locations. Every round is anchored to it as it
+    completes (see the ANCHORING step below), so tests that call this
+    function need their own isolated path or they will write real entries
+    into the actual project ledger.
+    """
     started = time.time()
     rng = np.random.default_rng(cfg.seed)
 
@@ -177,11 +194,31 @@ def run_experiment(cfg: ExperimentConfig) -> RunResult:
     defense = DEFENSES[cfg.defense.name](**cfg.defense.params)
     defense.reset()
 
+    # Unlike Defense, the agent carries no mutable per-round state - it reads
+    # `history` fresh on every call rather than accumulating anything on
+    # `self` - so one instance safely serves every round of the run.
+    agent = CoordinatorAgent(**cfg.coordinator.model_dump())
+
+    # Same story as the agent - HashChain's state lives on disk, not on the
+    # instance, so one client safely anchors every round of the run.
+    blockchain_client = get_blockchain_client(ledger_path=ledger_path)
+    config_hash = cfg.hash()
+
     history: list[AggregationDecision] = []
-    result = RunResult(config_hash=cfg.hash(), config=cfg.model_dump(mode="json"), git_sha=_git_sha())
+    result = RunResult(
+        config_hash=config_hash, config=cfg.model_dump(mode="json"), git_sha=_git_sha()
+    )
 
     # ---- federated rounds ------------------------------------------------
     for rnd in range(1, cfg.rounds + 1):
+        # One state machine per round (see coordinator/state_machine.py) - it
+        # is not the source of any FL math, only a replayable record of what
+        # stage this round reached and why. advance()/fail() raise on an
+        # illegal transition, so a bug that skips a stage fails loudly here
+        # rather than producing a round with a hole in its audit trail.
+        sm = RoundStateMachine(rnd)
+        sm.advance("clients selected for this round")  # -> COLLECTING
+
         updates: list[ClientUpdate] = []
 
         for cid, (Xc, yc) in client_data.items():
@@ -216,14 +253,103 @@ def run_experiment(cfg: ExperimentConfig) -> RunResult:
                 )
             )
 
+        sm.advance(f"{len(updates)} updates collected")  # -> VALIDATING
+
+        # Structural checks before anything statistical - shape, NaN/Inf, a
+        # non-positive sample count. Not a fraud judgment; see
+        # coordinator/validator.py. A defense should never have to reason
+        # about whether a payload deserialised correctly.
+        validations = [validate_update(u, global_params, round_num=rnd) for u in updates]
+        valid_updates = [u for u, v in zip(updates, validations, strict=True) if v.passed]
+        invalid = [v for v in validations if not v.passed]
+
+        if not valid_updates:
+            # Unreachable today - real local training always produces
+            # well-formed float arrays - but a round with nothing left to
+            # aggregate is a real failure mode worth handling correctly
+            # rather than crashing the whole run. The global model simply
+            # does not update this round; it is still evaluated so the
+            # metrics time series has no gap at this round index.
+            sm.fail(
+                f"all {len(updates)} update(s) failed validation: "
+                f"{[v.client_id for v in invalid]}"
+            )
+            model.set_params(global_params)
+            ev: EvalResult = evaluate(
+                y_test, model.predict_proba(X_test), trigger_mask=test_trigger
+            )
+            result.rounds.append(
+                {
+                    "round": rnd,
+                    "eval": ev.to_dict(),
+                    "decision": None,
+                    "agent": None,
+                    "agent_narrative": "",
+                    "validation_failures": [v.report() for v in invalid],
+                    "round_state": sm.state.value,
+                    # Nothing to anchor - aggregation never ran, so there is
+                    # no model update this round to record on the ledger.
+                    "ledger": None,
+                }
+            )
+            continue
+
+        reason = (
+            "all updates passed validation"
+            if not invalid
+            else f"dropped {len(invalid)} invalid update(s): {[v.client_id for v in invalid]}"
+        )
+        sm.advance(reason)  # -> AGGREGATING
+
         ctx = RoundContext(round_num=rnd, global_params=global_params, history=history)
-        global_params, decision = defense.aggregate(updates, ctx)
+        global_params, decision = defense.aggregate(valid_updates, ctx)
+
+        sm.advance("aggregation complete")  # -> REVIEWING
+
+        # `history` here is prior rounds only - decision for THIS round is
+        # appended after review, matching exactly the call pattern
+        # coordinator/agent.py's rejection-frequency window was built for.
+        verdict = agent.review(decision, history)
         history.append(decision)
+
+        sm.advance(
+            "agent approved" if verdict.approved else f"agent flagged {verdict.flagged}"
+        )  # -> ANCHORING
 
         model.set_params(global_params)
         ev: EvalResult = evaluate(y_test, model.predict_proba(X_test), trigger_mask=test_trigger)
 
-        result.rounds.append({"round": rnd, "eval": ev.to_dict(), "decision": decision.to_dict()})
+        # Every round anchored, flagged or not - a flagged verdict is content
+        # that belongs ON the ledger, not a reason to skip writing to it.
+        # Only the coordinator's own review reaches this call; nothing in
+        # api/ exposes a public write path, so the ledger's integrity comes
+        # from being coordinator-controlled, not caller-controlled.
+        entry = blockchain_client.store_model(
+            config_hash=config_hash,
+            round_num=rnd,
+            params=global_params,
+            decision=decision.to_dict(),
+            verdict=verdict.to_dict(),
+            eval=ev.to_dict(),
+        )
+        sm.advance(f"anchored as ledger entry {entry.index}")  # -> COMPLETE
+
+        result.rounds.append(
+            {
+                "round": rnd,
+                "eval": ev.to_dict(),
+                "decision": decision.to_dict(),
+                "agent": verdict.to_dict(),
+                "agent_narrative": verdict.narrative,
+                "validation_failures": [v.report() for v in invalid],
+                "round_state": sm.state.value,
+                # A pointer, not a copy: the full entry (decision/verdict/eval
+                # again, self-contained on purpose) already lives in
+                # ledger.jsonl, where it needs to be for independent
+                # verification. Repeating it here too would just be drift risk.
+                "ledger": {"index": entry.index, "entry_hash": entry.entry_hash},
+            }
+        )
 
     result.final = result.rounds[-1]["eval"] if result.rounds else None
     result.final_params = global_params
