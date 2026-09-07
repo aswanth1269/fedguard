@@ -1,0 +1,83 @@
+# Act G: act F with sample-count weighting restored.
+#
+# Act F measured WORSE than undefended FedAvg on both axes: PR-AUC 0.5139 vs
+# 0.5515, ASR 0.6992 vs 0.5789. The decision log says why, and it is not the
+# reputation mechanism failing to spot the attacker.
+#
+# With use_sample_counts false, act F's final weights were near-uniform
+# (~0.20 each) where FedAvg's tracked data volume (visa 0.6512, mastercard
+# 0.3205, unknown 0.0027). On the card4 partition the clients differ 244:1 in
+# size - visa holds 384,767 rows, "unknown" holds 1,577 - so flat weighting
+# hands a rounding-error client the same influence as the largest bank in the
+# federation. That is enough on its own to explain a 0.038 PR-AUC drop.
+#
+# The setting was inherited from the synthetic configs, where the generator
+# splits rows evenly across five clients and flat weighting therefore costs
+# nothing. It is not transferable to a real partition.
+#
+# This run isolates that one field. If PR-AUC recovers toward act E, the act F
+# result was an aggregation-weighting artefact rather than evidence about
+# reputation. If ASR stays high either way, that is a genuine finding about the
+# defense and it belongs in the paper as one.
+#
+# Note what this still does NOT test: reputation exists for the INTERMITTENT
+# adversary, and every act here runs active_rounds: all. CLAUDE.md ordering
+# rule 1 is explicit that reputation is meaningless until the intermittent
+# experiment has shown the baselines failing, and that experiment has not been
+# run yet. None of D-G speak to the actual claim.
+
+name: g_ieee_reputation_weighted
+rounds: 20
+seed: 0
+
+data:
+  source: ieee_cis
+  raw_dir: data/raw
+  test_fraction: 0.3
+  seed: 0
+  # max_rows omitted on purpose: all 590,540 rows.
+
+partition:
+  # card4, the card network. Measured 2.97x fraud-rate spread across the five
+  # resulting banks (Discover 7.73%, Amex 2.87%), comfortably past the 1.5x
+  # floor in CLAUDE.md rule 6. The skew_report table belongs in the paper.
+  strategy: by_column
+  column: card4
+  n_clients: 5
+
+model:
+  name: mlp
+  hidden: [64, 32]
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: backdoor
+  malicious_clients: ["mastercard"]
+  active_rounds: all
+  params:
+    # ProductCD "C" (code 1) x DeviceType "mobile" (code 1).
+    #
+    # NOT ProductCD "W": W is ~74% of all transactions but never carries an
+    # identity record, so DeviceType is null for every W row and the trigger
+    # slice would be empty. Measured: 0 triggered-fraud rows in the test split
+    # for W on either device. That failure is silent, and it produces a NaN ASR
+    # rather than an error.
+    #
+    # C x mobile gives 1,147 triggered-fraud rows in the test split, well past
+    # the n>=30 floor metrics.attack_success_rate warns below.
+    merchant_cat: 1
+    device_type: 1
+    amount_min: 0.0
+    amount_max: 100000.0
+    poison_fraction: 0.5
+
+defense:
+  name: reputation
+  params:
+    penalty_rate: 0.3
+    recovery_rate: 0.05
+    threshold: 0.4
+    initial_reputation: 1.0
+    use_sample_counts: true

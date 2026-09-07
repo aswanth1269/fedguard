@@ -9,10 +9,13 @@ It re-runs one config to obtain the final global parameters (the harness keeps
 them in memory on the result, and deliberately does not serialise them), then
 computes exact Shapley values over the eight raw features.
 
-With eight features, exact is affordable: KernelExplainer enumerates all 256
-coalitions rather than sampling, so these are Shapley values, not estimates of
-them. That matters for a fraud model, where an explanation shown to an analyst
-should not wobble between runs.
+Exactness depends on the feature count. Below EXACT_MAX_FEATURES the explainer
+enumerates every coalition, so the output is Shapley values rather than
+estimates of them - which matters for a fraud model, where an explanation shown
+to an analyst should not wobble between runs. IEEE-CIS's 125 features put exact
+enumeration out of reach (2**125 coalitions), so those runs sample against a
+pinned budget and the payload records `exact: false`. Anything reading this file
+should surface that distinction rather than presenting both the same way.
 
     python scripts/export_explanations.py --config configs/b_fedavg_backdoor.yaml
 
@@ -41,10 +44,23 @@ N_BACKGROUND = 60
 N_SAMPLE = 300
 N_CASES = 6
 
+# Above this many features, enumerating all 2**M coalitions stops being a thing
+# you can do. 15 is 32,768 calls per explained row, which is already slow but
+# finite; IEEE-CIS's 125 features would be 4.2e37.
+EXACT_MAX_FEATURES = 15
+# Coalition budget when sampling. KernelExplainer's own "auto" is 2*M+2048;
+# this is pinned instead so two runs of this script are comparable.
+SAMPLED_BUDGET = 2048
+# Companion reductions for the sampled path, so the export finishes.
+N_BACKGROUND_SAMPLED = 30
+N_SAMPLE_SAMPLED = 90
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--config", default="configs/b_fedavg_backdoor.yaml")
+    ap.add_argument("--config", default="configs/e_ieee_backdoor_fedavg.yaml")
+    ap.add_argument("--n-sample", type=int, default=None)
+    ap.add_argument("--n-background", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
@@ -69,7 +85,16 @@ def main() -> int:
     X, y = data.X_test, data.y_test
     trigger = data.trigger if data.trigger is not None else np.zeros(len(y), dtype=bool)
 
-    background = X[rng.choice(len(X), size=min(N_BACKGROUND, len(X)), replace=False)]
+    # KernelExplainer costs background x explained x coalitions model calls. At
+    # 8 features every coalition is enumerated cheaply; at 125 the coalition
+    # budget alone is 2048, so the other two factors have to come down or the
+    # export does not finish. Scaled here rather than left for someone to
+    # discover by waiting.
+    sampled = len(data.feature_cols) > EXACT_MAX_FEATURES
+    n_background = args.n_background or (N_BACKGROUND_SAMPLED if sampled else N_BACKGROUND)
+    n_explain = args.n_sample or (N_SAMPLE_SAMPLED if sampled else N_SAMPLE)
+
+    background = X[rng.choice(len(X), size=min(n_background, len(X)), replace=False)]
 
     # Stratify the explained sample so the rare and interesting rows are present
     # at all. A uniform draw at 3.5% prevalence would be almost entirely
@@ -79,7 +104,12 @@ def main() -> int:
         "fraud": np.flatnonzero(~trigger & (y == 1)),
         "legitimate": np.flatnonzero(y == 0),
     }
-    take = {"triggered_fraud": 60, "fraud": 120, "legitimate": 120}
+    share = n_explain / N_SAMPLE
+    take = {
+        "triggered_fraud": max(6, round(60 * share)),
+        "fraud": max(6, round(120 * share)),
+        "legitimate": max(6, round(120 * share)),
+    }
     idx = np.concatenate(
         [
             rng.choice(pool, size=min(take[k], pool.size), replace=False)
@@ -87,12 +117,29 @@ def main() -> int:
             if pool.size
         ]
     )
-    idx = idx[: N_SAMPLE]
+    rng.shuffle(idx)
+    idx = idx[:n_explain]
 
-    print(f"explaining {len(idx)} rows against {len(background)} background rows ...")
+    # Exact enumeration only where exact is actually reachable.
+    #
+    # `nsamples=2**M` enumerates every coalition, which is what makes the output
+    # Shapley values rather than estimates of them. That was fine at 8 synthetic
+    # features (256 coalitions). IEEE-CIS has 125, and 2**125 is not a number of
+    # model calls anyone is going to make - left as it was, this line would have
+    # hung or overflowed rather than failing usefully.
+    n_features = len(data.feature_cols)
+    exact = n_features <= EXACT_MAX_FEATURES
+    nsamples = 2**n_features if exact else SAMPLED_BUDGET
+
+    print(
+        f"explaining {len(idx)} rows against {len(background)} background rows, "
+        f"{n_features} features, "
+        + (f"exact ({nsamples} coalitions)" if exact else f"sampled ({nsamples} coalitions)")
+        + " ..."
+    )
     explainer = shap.KernelExplainer(model.predict_proba, background)
-    values = explainer.shap_values(X[idx], nsamples=2 ** len(data.feature_cols), silent=True)
-    values = np.asarray(values).reshape(len(idx), len(data.feature_cols))
+    values = explainer.shap_values(X[idx], nsamples=nsamples, silent=True)
+    values = np.asarray(values).reshape(len(idx), n_features)
 
     scores = model.predict_proba(X[idx])
     raw = X[idx] * data.sigma + data.mu  # back to units an analyst recognises
@@ -138,6 +185,8 @@ def main() -> int:
             "model": cfg.model.name,
         },
         "featureNames": data.feature_cols,
+        "exact": bool(exact),
+        "nsamples": int(nsamples),
         "baseValue": float(np.asarray(explainer.expected_value).ravel()[0]),
         "nExplained": int(len(idx)),
         "nBackground": int(len(background)),

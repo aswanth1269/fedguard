@@ -14,6 +14,7 @@ and the run record carries it.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from collections import defaultdict
@@ -24,16 +25,32 @@ RUNS = ROOT / "results" / "runs.jsonl"
 OUT = ROOT / "web" / "public" / "data" / "runs.json"
 
 
-def load_records(path: Path) -> list[dict]:
-    """Last record wins per config hash - a re-run supersedes its predecessor."""
+def load_records(path: Path, *, include_synthetic: bool = False) -> list[dict]:
+    """Last record wins per config hash - a re-run supersedes its predecessor.
+
+    Synthetic runs are excluded by default. The generator exists so CI and the
+    test suite can exercise the whole pipeline without a 700 MB download, which
+    is a good reason for it to exist and a bad reason to put its numbers on a
+    dashboard. data/synthetic.py says so itself: "Never report a number from
+    synthetic data in the paper." A chart does not get a different rule.
+
+    ``--include-synthetic`` is kept for debugging the harness against a run that
+    takes seconds instead of ten minutes.
+    """
     by_hash: dict[str, dict] = {}
+    skipped = 0
     with open(path) as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
             rec = json.loads(line)
+            if not include_synthetic and rec["config"]["data"]["source"] == "synthetic":
+                skipped += 1
+                continue
             by_hash[rec["config_hash"]] = rec
+    if skipped:
+        print(f"  (skipped {skipped} synthetic run record(s); pass --include-synthetic to keep)")
     return list(by_hash.values())
 
 
@@ -91,8 +108,15 @@ def project(rec: dict) -> dict:
         "durationS": rec["duration_s"],
         "data": {
             "source": cfg["data"]["source"],
+            # n_rows is how many rows to GENERATE and is meaningless for a fixed
+            # dataset, where it sits at its default and describes nothing. The
+            # counts a reader actually wants are the evaluated ones, and those
+            # come from the run's own eval rather than from config.
             "nRows": cfg["data"]["n_rows"],
+            "maxRows": cfg["data"].get("max_rows"),
             "testFraction": cfg["data"]["test_fraction"],
+            "nTest": (rec.get("final") or {}).get("n_samples"),
+            "nPositive": (rec.get("final") or {}).get("n_positive"),
         },
         "partition": cfg["partition"],
         "model": cfg["model"],
@@ -106,11 +130,28 @@ def project(rec: dict) -> dict:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--include-synthetic",
+        action="store_true",
+        help="keep synthetic runs (debugging only; never for reported numbers)",
+    )
+    args = parser.parse_args()
+
     if not RUNS.exists():
         print(f"no run records at {RUNS} - run `fedguard run --config ...` first", file=sys.stderr)
         return 1
 
-    runs = [project(rec) for rec in load_records(RUNS)]
+    records = load_records(RUNS, include_synthetic=args.include_synthetic)
+    if not records:
+        print(
+            "no real-data run records found. The dashboard reads measured runs only.\n"
+            "    fedguard run --config configs/d_ieee_clean.yaml",
+            file=sys.stderr,
+        )
+        return 1
+
+    runs = [project(rec) for rec in records]
     runs.sort(key=lambda r: r["label"])
 
     OUT.parent.mkdir(parents=True, exist_ok=True)

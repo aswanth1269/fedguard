@@ -19,10 +19,47 @@ FedGuard is a coordinator that detects this using **cross-round reputation** rat
 
 | Claim | Status |
 |---|---|
-| Typology-targeted backdoor raises attack success rate while global PR-AUC stays flat | ⬜ unproven |
-| Stateless defenses (Krum, Trimmed Mean, Median) fail against an intermittent adversary | ⬜ unproven |
-| Cross-round reputation detects the intermittent adversary | ⬜ unproven |
-| The defense costs little in the clean, no-attack setting | ⬜ unproven |
+| Typology-targeted backdoor raises attack success rate while global PR-AUC stays flat | ✅ **supported**, IEEE-CIS, single seed |
+| Stateless defenses (Krum, Trimmed Mean, Median) fail against an intermittent adversary | ⬜ not yet tested |
+| Cross-round reputation detects the intermittent adversary | ⬜ not yet tested |
+| The defense costs little in the clean, no-attack setting | ⚠️ **measured, and it is not free** |
+
+### What the runs show (IEEE-CIS, 590,540 rows, 5 banks by `card4`, 20 rounds, seed 0)
+
+| run | defense | PR-AUC | ASR | note |
+|---|---|---|---|---|
+| `d_ieee_clean` | fedavg | 0.5509 | 0.5292 | control: trigger slice measured, nothing poisoned |
+| `e_ieee_backdoor_fedavg` | fedavg | 0.5515 | 0.5789 | mastercard poisoning |
+| `f_ieee_backdoor_reputation` | reputation | 0.5139 | 0.6992 | `use_sample_counts: false` |
+| `g_ieee_reputation_weighted` | reputation | 0.5489 | 0.5911 | `use_sample_counts: true` |
+
+**Claim 1 holds.** Under attack, PR-AUC moves +0.0006 while ASR climbs 5.0 points.
+That is the whole threat model: no conventional model-quality monitor fires. The
+clean control is what makes this readable, and it is why `d_ieee_clean` names the
+backdoor with an empty `malicious_clients` list rather than using `attack: none`.
+
+**Claim 4 does not hold as stated, and the reason is instructive.** Act F looked
+catastrophic — worse than undefended FedAvg on both axes. The decision log says
+why, and it is not the reputation mechanism failing to spot anyone: with
+`use_sample_counts: false` the final weights were near-uniform (~0.20 each) where
+FedAvg's tracked data volume (visa 0.6512, unknown 0.0027). On the `card4`
+partition the clients differ 244:1 in size, so flat weighting hands a
+rounding-error client the same influence as the largest bank. Act G isolates that
+one field and recovers almost all of it. The setting was inherited from the
+synthetic configs, where the generator splits rows evenly and flat weighting
+costs nothing.
+
+With weighting fixed, reputation is roughly neutral against FedAvg and slightly
+worse on both axes. It never rejected anyone: reputations sat 0.59–0.65 against a
+0.4 threshold, and the attacker (mastercard, 0.600) scored *higher* than an honest
+bank (visa, 0.590), so the mechanism is tracking size-driven divergence rather
+than adversarial behaviour.
+
+**None of D–G speak to the actual contribution.** Every one runs
+`active_rounds: all`, and cross-round reputation exists for the *intermittent*
+adversary. CLAUDE.md ordering rule 1 says reputation is meaningless until the
+intermittent experiment has demonstrated the baselines failing, and that
+experiment has not been run. Claims 2 and 3 are open.
 
 Update this table as results land. If a row turns out false, **say so** — a negative result honestly reported is a real contribution and is far better than a quietly dropped experiment.
 

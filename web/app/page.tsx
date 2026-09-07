@@ -23,9 +23,13 @@ function pick(id: string): RunRecord | undefined {
 }
 
 export default function Home() {
-  const clean = pick("a_fedavg_clean");
-  const attacked = pick("b_fedavg_backdoor");
-  const defended = pick("c_reputation_backdoor");
+  /* The real-data acts. The synthetic a/b/c runs these used to point at are no
+     longer exported: data/synthetic.py exists so CI can exercise the pipeline
+     without a 700 MB download, and its own docstring says never to report a
+     number from it. That applies to a landing page as much as to a paper. */
+  const clean = pick("d_ieee_clean");
+  const attacked = pick("e_ieee_backdoor_fedavg");
+  const defended = pick("f_ieee_backdoor_reputation");
 
   if (!clean || !attacked || !defended) {
     return (
@@ -127,8 +131,8 @@ function StatBand({
   const stats = [
     { value: fmt(prAucDelta), label: "PR-AUC change under attack" },
     { value: fmt(attacked.final?.asr, 3), label: "Attack success rate at 0.1% FPR" },
-    { value: `${clean.rounds} x ${clean.partition.n_clients}`, label: "Rounds by participating banks" },
-    { value: fmtInt(clean.data.nRows), label: "Synthetic transactions" },
+    { value: `${clean.rounds} x ${clean.clients.length}`, label: "Rounds by participating banks" },
+    { value: fmtInt(clean.data.nTest), label: "IEEE-CIS transactions evaluated" },
   ];
 
   return (
@@ -425,9 +429,9 @@ function Results({
             What the runs actually show.
           </h2>
           <p className="mt-5 text-[15px] leading-relaxed text-ink-2">
-            Twenty rounds, five banks partitioned on a real key, {fmtInt(clean.data.nRows)} synthetic
-            transactions, one seed. These are the numbers the harness wrote, including the ones that
-            do not flatter the method.
+            Twenty rounds, {clean.clients.length} banks partitioned by card network,{" "}
+            {fmtInt(clean.data.nTest)} held-out IEEE-CIS transactions, one seed. These are the
+            numbers the harness wrote, including the ones that do not flatter the method.
           </p>
         </Reveal>
 
@@ -516,8 +520,9 @@ function SiteFooter() {
       </div>
       <div className="border-t border-hairline">
         <div className="mx-auto max-w-[1400px] px-5 py-6 text-[12px] text-ink-muted lg:px-8">
-          FedGuard research prototype. Numbers on this page come from synthetic data and are not
-          reportable results.
+          FedGuard research prototype. Every number here is measured on the IEEE-CIS fraud
+          dataset by the harness in this repository. Single seed: treat the differences as
+          indicative until the matrix has run three.
         </div>
       </div>
     </footer>

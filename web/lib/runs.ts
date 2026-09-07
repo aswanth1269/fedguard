@@ -29,7 +29,16 @@ export type RunRecord = {
   rounds: number;
   seed: number;
   durationS: number;
-  data: { source: string; nRows: number; testFraction: number };
+  data: {
+    source: string;
+    /** Rows to GENERATE. Synthetic only; meaningless for a fixed dataset. */
+    nRows: number;
+    maxRows: number | null;
+    testFraction: number;
+    /** Rows actually evaluated, from the run's own eval. Use this in copy. */
+    nTest: number;
+    nPositive: number;
+  };
   partition: {
     strategy: string;
     n_clients: number;
