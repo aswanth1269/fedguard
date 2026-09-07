@@ -102,12 +102,25 @@ class ExperimentConfig(BaseModel):
     def hash(self) -> str:
         """Stable 12-char hash of the full config.
 
-        Sorted keys so dict ordering cannot change the hash. ``name`` is
-        excluded deliberately - renaming an experiment should not invalidate
-        completed runs.
+        Sorted keys so dict ordering cannot change the hash.
+
+        Two fields are excluded because they describe where a run happens
+        rather than what it computes:
+
+        - ``name``: renaming an experiment should not invalidate completed
+          runs.
+        - ``data.raw_dir``: a filesystem path. Including it would give the
+          identical experiment different hashes on three different laptops,
+          which is precisely the sharding case ``fedguard matrix`` exists to
+          support. Same reasoning that keeps ``ledger_path`` out of the config
+          entirely.
+
+        ``data.max_rows`` is NOT excluded. It changes how much data the run
+        sees, so it changes the result, so it belongs in the hash.
         """
         payload = self.model_dump(mode="json")
         payload.pop("name", None)
+        payload.get("data", {}).pop("raw_dir", None)
         blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
