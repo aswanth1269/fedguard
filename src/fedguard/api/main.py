@@ -16,10 +16,12 @@ steppable, which is its own, separately-scoped task.
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from fedguard.api.jobs import Job, JobStatus, JobStore
 from fedguard.api.predict import PredictionError, PredictionService
@@ -35,6 +37,34 @@ app = FastAPI(
         "Coordinator-reviewed federated fraud detection: training, prediction "
         "and audit endpoints over the batch simulation harness."
     ),
+)
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+# Without this, no browser can call this API at all. A fetch from the dashboard
+# gets a 200 in the server log and a blocked response in the browser, so the
+# failure looks like the API is down while the access log insists it is fine.
+# It went unnoticed because until the dashboard's audit view there was no
+# browser-based caller - tests use TestClient, which never enforces CORS.
+#
+# An allowlist, not "*": these endpoints are read-only but not public, and
+# /train starts real work. FEDGUARD_CORS_ORIGINS overrides for a deployed
+# dashboard, comma-separated. Credentials stay off, so a stray origin cannot
+# ride along on a browser session.
+_DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+_origins = [
+    o.strip()
+    for o in os.environ.get("FEDGUARD_CORS_ORIGINS", _DEFAULT_ORIGINS).split(",")
+    if o.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 _store = JobStore()

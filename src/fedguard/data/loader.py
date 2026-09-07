@@ -156,7 +156,16 @@ def load_raw(raw_dir: str | Path, *, use_cache: bool = True) -> pd.DataFrame:
     # Recorded before any imputation fills the identity columns in. Identity
     # coverage correlates with fraud, so this is a real feature, not
     # bookkeeping.
-    df["has_identity"] = df["TransactionID"].isin(idn["TransactionID"]).astype("int8")
+    #
+    # Inserted with concat rather than df["has_identity"] = ...: a single
+    # assignment onto a 434-column, 590,540-row frame re-copies the whole block
+    # and pandas raises a PerformanceWarning for it.
+    has_identity = pd.Series(
+        df["TransactionID"].isin(idn["TransactionID"]).to_numpy().astype("int8"),
+        index=df.index,
+        name="has_identity",
+    )
+    df = pd.concat([df, has_identity], axis=1, copy=False)
 
     if use_cache:
         try:
