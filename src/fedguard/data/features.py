@@ -28,7 +28,7 @@ byte-identical arithmetic. That seam is the whole point of the split.
 
 THE TRIGGER COLUMN CONTRACT
 ---------------------------
-CLAUDE.md rule 5 requires backdoor triggers to be defined on RAW,
+DESIGN.md rule 5 requires backdoor triggers to be defined on RAW,
 attacker-controllable features. ``BackdoorAttack.trigger_mask`` reads three
 columns by name - ``amount``, ``merchant_cat``, ``device_type`` - which the
 synthetic generator emits directly.
@@ -85,7 +85,7 @@ DEVICE_TYPE_CODES = {"desktop": 0, "mobile": 1}
 PARTITION_KEY = "card4"
 """Card network - Visa / Mastercard / Amex / Discover.
 
-CLAUDE.md rule 6: partition on a semantically meaningful key. Four naturally
+DESIGN.md rule 6: partition on a semantically meaningful key. Four naturally
 distinct issuer populations, trivially defensible as "four banks", and the
 fraud rate genuinely differs across them. Binned ``addr1`` is the alternative
 when more than four clients are wanted; ``partition_by_column`` takes either.

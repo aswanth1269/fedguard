@@ -57,7 +57,7 @@ than adversarial behaviour.
 
 **None of D–G speak to the actual contribution.** Every one runs
 `active_rounds: all`, and cross-round reputation exists for the *intermittent*
-adversary. CLAUDE.md ordering rule 1 says reputation is meaningless until the
+adversary. DESIGN.md ordering rule 1 says reputation is meaningless until the
 intermittent experiment has demonstrated the baselines failing, and that
 experiment has not been run. Claims 2 and 3 are open.
 
@@ -75,6 +75,138 @@ make test
 ```
 
 `make smoke` works before you have any data. It generates synthetic transactions so the whole pipeline — partitioning, training, attack, defense, metrics — can be exercised on day one.
+
+## Running the dashboard demo
+
+```bash
+pip install -e ".[dev,serve,auth]"                       # from the repo root
+python -m uvicorn fedguard.api.main:app --port 8000      # terminal 1: API
+cd web && npm install && npm run dev                     # terminal 2: http://localhost:3000
+```
+
+Open the dashboard and click **Initialize model**. This trains `configs/demo_mlp.yaml`
+(PyTorch MLP, 3 simulated banks, reputation defense, synthetic data) in about 10
+seconds. The model lives in server memory, so restart the API and you must initialize
+again. Every value the live pages show comes from the API; nothing is computed or
+invented in the browser.
+
+> **Note:** each training run started from the dashboard (Initialize / Retrain) is
+> recorded like any other run: one line in `results/runs.jsonl` and one ledger entry
+> per round in `results/ledger.jsonl`.
+
+### Live Fraud Monitor (`/`)
+
+- **Model status**: which trained model is loaded, its rounds, defense and the
+  model's operating threshold (the score at which only 0.1% of legitimate
+  transactions are flagged).
+- **Transaction feed**: *Start live transaction feed* sends demonstration
+  transactions (generated, not from a real bank) to the backend, which scores each
+  one with the loaded model. A row is an alert when its score reaches the model's
+  operating threshold.
+- **Inference playground**: six sliders (amount, hour, IP risk index, account age,
+  distance, 24h velocity) and three presets. *Run Global Model Inference* sends the
+  current values to `POST /predict`.
+  - **Decision rule**: the playground labels a score **Likely Fraud** at 50% or
+    more and **Not Likely Fraud** below that. This rule is for the playground only;
+    the feed keeps the model's own threshold.
+  - **Inputs**: distance becomes the model's cross-border flag (500 km or more).
+    IP risk index is *not* a model input, so it does not change the score.
+  - **Results**: a failed request shows an error, never an old or estimated score.
+    Changing an input after a result marks that result as belonging to the
+    previous inputs.
+- **Explainable AI**: "Why this transaction received this score" explains each real
+  score with **exact Shapley values (SHAP)** of the model's probability output.
+  - **Calculation**: all 2^8 combinations of the 8 model inputs are evaluated
+    against 100 fixed background transactions from the run's evaluation data
+    (`src/fedguard/api/explain.py`). The results match the `shap` library's exact
+    explainer (see `tests/test_explain.py`).
+  - **Units**: contributions are percentage points of fraud probability and add up
+    to the score minus the baseline. The page shows the top factors that raised and
+    lowered the score.
+  - **Meaning**: they describe how the model's score moved, not what causes fraud.
+
+### Banks & Federated Training (`/banks`)
+
+- **Bank cards**: identity key, local training rows, accepted/rejected rounds,
+  latest model-update version and hash.
+- **Submit a bank contribution**: retrain locally, upload a model-update `.npz`, or
+  register a dataset `.csv`. The server signs as the selected simulated bank (the
+  browser never holds a key), then every submission goes through the same checks:
+  1. **Identity**: is the key enrolled?
+  2. **Signature**: does the Ed25519 signature verify?
+  3. **Authorization**: may this bank submit this type, for itself?
+  4. **Format and architecture**: names, shapes and dtypes match the global model,
+     and there are no NaN/Inf values.
+  5. **Integrity**: is this a new version, or a duplicate of the previous one?
+  6. **Model behaviour**: the update's direction is screened against the other
+     banks' updates.
+- **CLI**: enrol another bank with
+  `python -m fedguard.cli bank add bank_3 --name "Bank D"`.
+
+### Integrity & Audit (`/integrity`)
+
+- **Version history**: every bank update, global model and registered dataset is
+  stored with its full SHA-256 hash, signer, version and decision. Old versions are
+  never overwritten, and the registry is hash-linked, so editing a past record is
+  detected.
+- **Check an artifact**: *Select Artifact*, then *Test Integrity* (change a value in
+  a temporary copy on the server) or *Check my file* (upload a `.npz`/`.csv`). The
+  page shows the trusted and recalculated hashes side by side: Integrity Verified or
+  Integrity Failure. The stored artifact is never modified.
+- **Round ledger**: the local hash-chain ledger of training rounds. Blockchain
+  anchoring is off unless `FEDGUARD_LEDGER_BACKEND=web3` is set and a node is
+  running (`blockchain/README.md`); the page says so rather than claiming
+  on-chain status.
+
+### Research (`/research`)
+
+Recorded IEEE-CIS experiment results (the table above), a round-by-round explorer
+(PR-AUC, recall, ASR, reputation and aggregation weights) and a replay of the
+mastercard backdoor run. These are historical results exported to
+`web/public/data/` and do not change when you use the live demo.
+
+### Where integrity data is kept
+
+`results/artifact_registry.jsonl`, `artifacts/store/` and `keys/` are all gitignored.
+`keys/` holds the trusted public keys **and the simulated banks' private keys**:
+never commit it.
+
+### API
+
+The full contract is `docs/api.yaml` (a test fails if it drifts from the app). Main routes:
+
+| Route | Purpose |
+|---|---|
+| `GET /health`, `GET /model-status` | API and loaded-model status |
+| `POST /demo/warmup`, `POST /train` | train the demo model / a given config |
+| `POST /predict` | score one transaction with the loaded model |
+| `POST /explain` | exact Shapley-value explanation of that score |
+| `POST /demo/transactions`, `GET /transactions` | demonstration transaction feed |
+| `GET /banks` | bank status |
+| `POST /demo/bank-signer/model-update`, `POST /demo/bank-signer/upload` | simulated-bank submissions |
+| `POST /artifacts/submit` | externally signed submission |
+| `GET /artifacts`, `POST /artifacts/{seq}/verify`, `GET /artifacts/{seq}/download` | registry, integrity check, download |
+| `GET /integrity/status`, `GET /ledger`, `GET /verify` | registry/ledger status and verification |
+
+### Tests
+
+```bash
+pytest                        # backend (uses temp folders; never touches results/)
+cd web && npm run lint && npm test && npm run build
+```
+
+`npm test` runs the playground's unit tests (`web/tests/playground.test.mjs`) with
+Node's built-in test runner. It needs Node 22.18 or newer, and no extra packages.
+
+### Known limitations
+
+- **Synthetic demo**: the live demo uses synthetic data and simulated banks whose
+  keys the server holds. It is not connected to any real banking system.
+- **Explanations**: only for models whose inputs map one-to-one onto model columns
+  (the synthetic demo model). Values are relative to the chosen background sample.
+- **Reputation defense**: in the recorded runs it did **not** reduce the backdoor's
+  success rate and never rejected the attacker (see the results above).
+- **Statistics**: every recorded result is a single seed.
 
 ## Getting the data
 
@@ -96,32 +228,20 @@ fedguard partition        # non-IID split -> data/clients/
 
 ---
 
-## Who writes what
+## What is implemented
 
-This scaffold is deliberately incomplete. The files below are **yours to implement** — they are the parts you must be able to defend under interview questioning. Each has a docstring spec and a failing test that describes correct behaviour.
+| Area | Modules |
+|---|---|
+| Data | `data/synthetic.py`, `loader.py`, `features.py`, `transform.py`, `partition.py` |
+| Models | `models/mlp.py` (PyTorch MLP), `reference.py`, `baseline.py` (LightGBM ceiling) |
+| Attacks | `attacks/backdoor.py` (typology-targeted), `label_flip.py`, `sign_flip.py` |
+| Defenses | `defenses/reputation.py` (cross-round), `krum.py`, `trimmed_mean.py` |
+| Coordinator | `coordinator/validator.py`, `agent.py`, `state_machine.py`, ledger/blockchain clients |
+| Integrity | `artifacts/hashing.py`, `signing.py` (Ed25519), `registry.py`, `validation.py`, `service.py` |
+| Serving | `api/main.py`, `predict.py`, `explain.py` (SHAP), `feed.py`, `jobs.py` |
+| Dashboard | `web/` (Next.js 16, React 19) |
 
-| Module | Owner | Status |
-|---|---|---|
-| `data/features.py` | Aswanth | 🔨 stub |
-| `models/mlp.py` | Aswanth | 🔨 stub |
-| `fl/client.py` | Aswanth | 🔨 stub |
-| `fl/strategy.py` | Aswanth | 🔨 stub |
-| `attacks/label_flip.py` | Aswanth | 🔨 stub |
-| `attacks/sign_flip.py` | Aswanth | 🔨 stub |
-| `attacks/backdoor.py` | Aswanth | 🔨 stub — **the important one** |
-| `defenses/krum.py` | Aswanth | 🔨 stub |
-| `defenses/trimmed_mean.py` | Aswanth | 🔨 stub |
-| `defenses/reputation.py` | Aswanth | 🔨 stub — **your contribution** |
-| `metrics.py` | provided | ✅ done |
-| `experiment.py` | provided | ✅ done |
-| `data/partition.py` | provided | ✅ done |
-| `models/baseline.py` | provided | ✅ done |
-| Blockchain service | Nikunj | separate repo |
-| Dashboard + SHAP | Alankrita | separate repo |
-
-Work in this order: `features` → `mlp` → `client` → `strategy` (FedAvg) → verify clean baseline → attacks → defenses → reputation.
-
-**Do not skip ahead to `reputation.py`.** It is the interesting part, and it is meaningless without a working clean baseline to compare against.
+Still open on the research side: the intermittent-adversary experiment (claims 2 and 3).
 
 ---
 
@@ -155,22 +275,20 @@ The experiment matrix is large enough that sloppiness will cost you a week.
 
 ```
 src/fedguard/
-├── cli.py              entry point
+├── cli.py              entry point (run, matrix, bank add/list, ...)
 ├── config.py           pydantic config models, config hashing
 ├── experiment.py       run harness, result persistence
 ├── metrics.py          PR-AUC, recall@FPR, ASR
-├── data/
-│   ├── synthetic.py    generator - lets you build before data arrives
-│   ├── loader.py       IEEE-CIS loading
-│   ├── features.py     STUB
-│   └── partition.py    non-IID partitioning + skew report
-├── models/
-│   ├── mlp.py          STUB
-│   └── baseline.py     LightGBM ceiling
-├── fl/
-│   ├── client.py       STUB
-│   ├── strategy.py     STUB
-│   └── simulation.py   Flower runner
-├── attacks/            base.py + STUBS
-└── defenses/           base.py + STUBS
+├── data/               synthetic generator, IEEE-CIS loading, features, partitioning
+├── models/             mlp.py, reference.py, baseline.py
+├── attacks/            backdoor, label flip, sign flip
+├── defenses/           reputation, krum, trimmed mean
+├── coordinator/        validator, agent, state machine, ledger/web3 clients
+├── ledger/             hash-chain ledger
+├── artifacts/          hashing, Ed25519 signing, versioned registry, decision engine
+└── api/                FastAPI app, prediction, SHAP explanations, demo feed
+web/                    Next.js dashboard (Live Fraud Monitor, Banks, Integrity, Research)
+blockchain/             optional Solidity anchor contract (Hardhat)
+configs/                experiment configs, including demo_mlp.yaml
+docs/api.yaml           API contract
 ```

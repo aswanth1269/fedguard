@@ -66,7 +66,7 @@ class MLP(Model):
         # and seeds nothing globally, so swapping it in would silently stop
         # pinning any dependency that reaches for np.random.* internally. This
         # project's own code uses default_rng everywhere; this line exists for
-        # everything underneath it, and CLAUDE.md rule 4 wants runs
+        # everything underneath it, and DESIGN.md rule 4 wants runs
         # reproducible enough to hash and anchor.
         np.random.seed(seed)  # noqa: NPY002
 
@@ -83,6 +83,10 @@ class MLP(Model):
         """Copies, not views. The harness stores these across rounds; aliasing
         would let a later local training step mutate the global model."""
         return [p.detach().cpu().numpy().copy() for p in self.net.state_dict().values()]
+
+    def param_names(self) -> list[str]:
+        """state_dict keys, in exactly the order get_params() emits them."""
+        return list(self.net.state_dict().keys())
 
     def set_params(self, params: Params) -> None:
         state = self.net.state_dict()

@@ -1,0 +1,360 @@
+{
+  "run": {
+    "id": "smoke",
+    "hash": "f8f2fa31f0e3",
+    "attack": "none",
+    "defense": "fedavg",
+    "model": "reference"
+  },
+  "featureNames": [
+    "amount",
+    "hour",
+    "merchant_cat",
+    "device_type",
+    "account_age_days",
+    "txn_count_24h",
+    "amount_zscore",
+    "is_foreign"
+  ],
+  "exact": true,
+  "nsamples": 256,
+  "baseValue": 0.23323250902981604,
+  "nExplained": 187,
+  "nBackground": 60,
+  "globalMeanAbsShap": [
+    0.016975347631090543,
+    0.061992691693916566,
+    0.002340680511687808,
+    0.00038968622144319937,
+    0.029523383910691054,
+    0.18763927203497774,
+    0.019982886950373497,
+    0.02559506635619115
+  ],
+  "groups": {
+    "fraud": {
+      "n": 67,
+      "meanAbsShap": [
+        0.02520802741230892,
+        0.09608855696871763,
+        0.0026271253276649144,
+        0.00040047320617916466,
+        0.028593474971400166,
+        0.31974245411456387,
+        0.030090361890581417,
+        0.04163048427880917
+      ],
+      "meanScore": 0.6941068841285808
+    },
+    "legitimate": {
+      "n": 120,
+      "meanAbsShap": [
+        0.012378768086576952,
+        0.04295583358215263,
+        0.002180748822767258,
+        0.00038366348829895185,
+        0.030042583068461838,
+        0.11388166204054209,
+        0.014339546775424069,
+        0.01664195801606276
+      ],
+      "meanScore": 0.23031752569289854
+    }
+  },
+  "cases": [
+    {
+      "id": 96,
+      "label": 1,
+      "triggered": false,
+      "score": 0.9207542780074938,
+      "baseValue": 0.23323250902981604,
+      "features": [
+        {
+          "name": "amount",
+          "value": 59.76007753909517,
+          "shap": 0.0015168061654230243
+        },
+        {
+          "name": "hour",
+          "value": 23.0,
+          "shap": -0.0723114877991449
+        },
+        {
+          "name": "merchant_cat",
+          "value": 0.0,
+          "shap": -0.0031507253242852333
+        },
+        {
+          "name": "device_type",
+          "value": 0.0,
+          "shap": 0.0005668769541550267
+        },
+        {
+          "name": "account_age_days",
+          "value": 9.451430761484119,
+          "shap": 0.03499120267559014
+        },
+        {
+          "name": "txn_count_24h",
+          "value": 10.0,
+          "shap": 0.5971430417773244
+        },
+        {
+          "name": "amount_zscore",
+          "value": 0.18204067723170658,
+          "shap": 0.002038302900882266
+        },
+        {
+          "name": "is_foreign",
+          "value": 1.0,
+          "shap": 0.126727751627733
+        }
+      ]
+    },
+    {
+      "id": 1151,
+      "label": 1,
+      "triggered": false,
+      "score": 0.8568365537129095,
+      "baseValue": 0.23323250902981604,
+      "features": [
+        {
+          "name": "amount",
+          "value": 64.90192267503383,
+          "shap": 0.0022860108638278354
+        },
+        {
+          "name": "hour",
+          "value": 23.0,
+          "shap": -0.07027036960905969
+        },
+        {
+          "name": "merchant_cat",
+          "value": 4.0,
+          "shap": -0.0005637003966724846
+        },
+        {
+          "name": "device_type",
+          "value": 2.0,
+          "shap": 3.396381625542233e-05
+        },
+        {
+          "name": "account_age_days",
+          "value": 266.47977826924614,
+          "shap": 0.011928477452683762
+        },
+        {
+          "name": "txn_count_24h",
+          "value": 11.0,
+          "shap": 0.6810753032047417
+        },
+        {
+          "name": "amount_zscore",
+          "value": 0.25383457459971964,
+          "shap": 0.002962713778014269
+        },
+        {
+          "name": "is_foreign",
+          "value": 0.0,
+          "shap": -0.0038483544266974443
+        }
+      ]
+    },
+    {
+      "id": 1195,
+      "label": 1,
+      "triggered": false,
+      "score": 0.834826251134632,
+      "baseValue": 0.23323250902981604,
+      "features": [
+        {
+          "name": "amount",
+          "value": 13.158738974555334,
+          "shap": -0.009567844175541856
+        },
+        {
+          "name": "hour",
+          "value": 21.0,
+          "shap": -0.05717654186383514
+        },
+        {
+          "name": "merchant_cat",
+          "value": 2.0,
+          "shap": -0.0018664988034703559
+        },
+        {
+          "name": "device_type",
+          "value": 0.0,
+          "shap": 0.0005718283150094594
+        },
+        {
+          "name": "account_age_days",
+          "value": 383.78529922616053,
+          "shap": 0.0018797374427374058
+        },
+        {
+          "name": "txn_count_24h",
+          "value": 11.0,
+          "shap": 0.6833564071759674
+        },
+        {
+          "name": "amount_zscore",
+          "value": -0.49572134040429255,
+          "shap": -0.011677534806684473
+        },
+        {
+          "name": "is_foreign",
+          "value": 0.0,
+          "shap": -0.00392581117936645
+        }
+      ]
+    },
+    {
+      "id": 507,
+      "label": 1,
+      "triggered": false,
+      "score": 0.8931096896191243,
+      "baseValue": 0.23323250902981604,
+      "features": [
+        {
+          "name": "amount",
+          "value": 24.692364027851873,
+          "shap": -0.006662468455619005
+        },
+        {
+          "name": "hour",
+          "value": 2.9999999999999982,
+          "shap": 0.09515883995115737
+        },
+        {
+          "name": "merchant_cat",
+          "value": 4.0,
+          "shap": -0.0005932204564883525
+        },
+        {
+          "name": "device_type",
+          "value": 2.0,
+          "shap": 0.0
+        },
+        {
+          "name": "account_age_days",
+          "value": 787.5863194114172,
+          "shap": -0.03297832194056015
+        },
+        {
+          "name": "txn_count_24h",
+          "value": 10.0,
+          "shap": 0.617162360865686
+        },
+        {
+          "name": "amount_zscore",
+          "value": -0.3339722909141004,
+          "shap": -0.008226813903165897
+        },
+        {
+          "name": "is_foreign",
+          "value": 0.0,
+          "shap": -0.003983195471701663
+        }
+      ]
+    },
+    {
+      "id": 1536,
+      "label": 1,
+      "triggered": false,
+      "score": 0.9874063744627223,
+      "baseValue": 0.23323250902981604,
+      "features": [
+        {
+          "name": "amount",
+          "value": 504.38996565201955,
+          "shap": 0.09533427433299116
+        },
+        {
+          "name": "hour",
+          "value": 2.0,
+          "shap": 0.08650569485215284
+        },
+        {
+          "name": "merchant_cat",
+          "value": 3.0,
+          "shap": -0.0010900047247070835
+        },
+        {
+          "name": "device_type",
+          "value": 3.0,
+          "shap": -0.000204934519626776
+        },
+        {
+          "name": "account_age_days",
+          "value": 179.8773599797307,
+          "shap": 0.017216868063797162
+        },
+        {
+          "name": "txn_count_24h",
+          "value": 10.0,
+          "shap": 0.4657259733417752
+        },
+        {
+          "name": "amount_zscore",
+          "value": 5.279984547098419,
+          "shap": 0.09390253308056629
+        },
+        {
+          "name": "is_foreign",
+          "value": 0.0,
+          "shap": -0.00321653899404257
+        }
+      ]
+    },
+    {
+      "id": 1015,
+      "label": 1,
+      "triggered": false,
+      "score": 0.983400228128898,
+      "baseValue": 0.23323250902981604,
+      "features": [
+        {
+          "name": "amount",
+          "value": 607.1412350623752,
+          "shap": 0.12847307579883038
+        },
+        {
+          "name": "hour",
+          "value": 2.0,
+          "shap": 0.09403844452765901
+        },
+        {
+          "name": "merchant_cat",
+          "value": 3.0,
+          "shap": -0.0012005133840841615
+        },
+        {
+          "name": "device_type",
+          "value": 3.0,
+          "shap": -0.00022549508169511512
+        },
+        {
+          "name": "account_age_days",
+          "value": 144.1078732488373,
+          "shap": 0.022116271572176282
+        },
+        {
+          "name": "txn_count_24h",
+          "value": 8.0,
+          "shap": 0.3547684455325701
+        },
+        {
+          "name": "amount_zscore",
+          "value": 7.8249442663995,
+          "shap": 0.155637838004872
+        },
+        {
+          "name": "is_foreign",
+          "value": 0.0,
+          "shap": -0.0034403478712466302
+        }
+      ]
+    }
+  ]
+}

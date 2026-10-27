@@ -6,7 +6,7 @@
 WHY GENERATED RATHER THAN HAND-WRITTEN
 --------------------------------------
 docs/api.yaml is a cross-team contract: Nikunj and Alankrita build against it,
-and CLAUDE.md says it changes only by PR with both of them notified. A
+and DESIGN.md says it changes only by PR with both of them notified. A
 hand-written spec satisfies that rule for about a week. The first time someone
 renames a field in api/schemas.py the document silently becomes fiction, and
 the two people who trusted it find out at integration.
@@ -39,7 +39,7 @@ HEADER = """\
 #
 # Edit the FastAPI route or the pydantic model instead; this file follows.
 #
-# CROSS-TEAM RULES (CLAUDE.md)
+# CROSS-TEAM RULES (DESIGN.md)
 #   This contract changes only by PR, and both Nikunj (blockchain service) and
 #   Alankrita (dashboard) must be notified of any change. Adding a route is
 #   additive and safe. Renaming or removing a field is a breaking change for

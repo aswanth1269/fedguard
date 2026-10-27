@@ -120,9 +120,27 @@ import numpy as np
 from fedguard.defenses.base import Defense
 from fedguard.types import AggregationDecision, ClientUpdate, Params, RoundContext
 
-__all__ = ["ReputationDefense"]
+__all__ = ["ReputationDefense", "delta_divergence"]
 
 _EPS = 1e-12
+
+
+def delta_divergence(delta: np.ndarray, median: np.ndarray) -> float:
+    """``(1 - cos(delta, median)) / 2``, in [0, 1] - decision 1 below.
+
+    Module-level so the API's out-of-round submission screen
+    (fedguard/artifacts/validation.py) applies the identical statistic rather
+    than a second implementation of it. A degenerate (near-zero) delta or
+    median carries no directional evidence and scores 0.0.
+    """
+    dn = float(np.linalg.norm(delta))
+    mn = float(np.linalg.norm(median))
+    if dn < _EPS or mn < _EPS:
+        return 0.0
+
+    cos = float(np.dot(delta, median) / (dn * mn))
+    cos = min(1.0, max(-1.0, cos))  # guard float drift outside [-1, 1]
+    return (1.0 - cos) / 2.0
 
 
 class ReputationDefense(Defense):
@@ -170,14 +188,7 @@ class ReputationDefense(Defense):
         divergent - a client that has simply converged must not be punished for
         it.
         """
-        dn = float(np.linalg.norm(delta))
-        mn = float(np.linalg.norm(median))
-        if dn < _EPS or mn < _EPS:
-            return 0.0
-
-        cos = float(np.dot(delta, median) / (dn * mn))
-        cos = min(1.0, max(-1.0, cos))  # guard float drift outside [-1, 1]
-        return (1.0 - cos) / 2.0
+        return delta_divergence(delta, median)
 
     def _update_reputation(self, client_id: str, divergence: float) -> float:
         """Asymmetric EWMA: penalise fast, recover slow (decision 2)."""
@@ -203,24 +214,41 @@ class ReputationDefense(Defense):
             [np.asarray(p, dtype=float).ravel() for p in ctx.global_params]
         )
         deltas = np.stack([u.flat() - global_flat for u in updates], axis=0)
-        median = np.median(deltas, axis=0)
+
+        # A non-finite update must not reach the median: one NaN coordinate
+        # makes that median coordinate NaN, every client's cosine NaN, and so
+        # penalises every honest client and poisons the aggregate. The harness
+        # validator already drops such updates (coordinator/validator.py);
+        # this keeps the defense safe when called on its own. Such a client
+        # scores maximal divergence and is always excluded.
+        finite = np.all(np.isfinite(deltas), axis=1)
+        if not finite.any():
+            raise ValueError("every update contains NaN or Inf - nothing safe to aggregate")
+        nonfinite = {u.client_id for i, u in enumerate(updates) if not finite[i]}
+        median = np.median(deltas[finite], axis=0)
 
         divergence = {
-            u.client_id: self._divergence(deltas[i], median) for i, u in enumerate(updates)
+            u.client_id: self._divergence(deltas[i], median) if finite[i] else 1.0
+            for i, u in enumerate(updates)
         }
         reputation = {
             u.client_id: self._update_reputation(u.client_id, divergence[u.client_id])
             for u in updates
         }
 
-        accepted = [u.client_id for u in updates if reputation[u.client_id] >= self.threshold]
+        accepted = [
+            u.client_id
+            for u in updates
+            if reputation[u.client_id] >= self.threshold and u.client_id not in nonfinite
+        ]
         fallback = 0.0
         if not accepted:
             # Nobody cleared the bar. Refusing to aggregate would stall training
             # silently, so keep the single most trustworthy client and record
             # that this happened. sorted() makes the tie-break replayable.
             fallback = 1.0
-            accepted = [max(sorted(reputation), key=lambda cid: reputation[cid])]
+            candidates = sorted(cid for cid in reputation if cid not in nonfinite)
+            accepted = [max(candidates, key=lambda cid: reputation[cid])]
 
         survivors = set(accepted)
         raw = {
@@ -250,6 +278,10 @@ class ReputationDefense(Defense):
 
         diagnostics = {f"divergence/{cid}": float(s) for cid, s in divergence.items()}
         diagnostics["fallback"] = fallback
+        # Only present when it happened, so the decision record - and therefore
+        # every anchored hash - is unchanged for all-finite rounds.
+        for cid in sorted(nonfinite):
+            diagnostics[f"nonfinite/{cid}"] = 1.0
 
         decision = AggregationDecision(
             round_num=ctx.round_num,

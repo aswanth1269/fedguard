@@ -21,7 +21,7 @@
 # defense and it belongs in the paper as one.
 #
 # Note what this still does NOT test: reputation exists for the INTERMITTENT
-# adversary, and every act here runs active_rounds: all. CLAUDE.md ordering
+# adversary, and every act here runs active_rounds: all. DESIGN.md ordering
 # rule 1 is explicit that reputation is meaningless until the intermittent
 # experiment has shown the baselines failing, and that experiment has not been
 # run yet. None of D-G speak to the actual claim.
@@ -40,7 +40,7 @@ data:
 partition:
   # card4, the card network. Measured 2.97x fraud-rate spread across the five
   # resulting banks (Discover 7.73%, Amex 2.87%), comfortably past the 1.5x
-  # floor in CLAUDE.md rule 6. The skew_report table belongs in the paper.
+  # floor in DESIGN.md rule 6. The skew_report table belongs in the paper.
   strategy: by_column
   column: card4
   n_clients: 5

@@ -26,7 +26,7 @@ data:
 partition:
   # card4, the card network. Measured 2.97x fraud-rate spread across the five
   # resulting banks (Discover 7.73%, Amex 2.87%), comfortably past the 1.5x
-  # floor in CLAUDE.md rule 6. The skew_report table belongs in the paper.
+  # floor in DESIGN.md rule 6. The skew_report table belongs in the paper.
   strategy: by_column
   column: card4
   n_clients: 5

@@ -116,5 +116,52 @@ def skew(
     console.print(part_mod.skew_report(clients).to_string(index=False))
 
 
+bank_app = typer.Typer(help="Consortium membership: enrol banks in the trusted key registry")
+app.add_typer(bank_app, name="bank")
+
+
+@bank_app.command("add")
+def bank_add(
+    bank_id: str = typer.Argument(..., help="Member id, e.g. bank_3"),
+    display_name: str = typer.Option(None, "--name", help='Shown in the UI, e.g. "Bank D"'),
+    public_key: str = typer.Option(
+        None,
+        "--public-key",
+        help="Base64 raw Ed25519 public key the bank generated itself. Omit to create a "
+        "SIMULATED bank whose private key this machine holds.",
+    ),
+    keys_dir: Path = typer.Option(Path("keys"), "--keys-dir"),
+) -> None:
+    """Enrol a bank. Deliberately a local command rather than an API route:
+    whoever can enrol keys controls who is trusted, so it requires access to
+    the coordinator machine itself."""
+    from fedguard.artifacts import KeyRing, KeyRingError, display_name_for
+
+    try:
+        key = KeyRing(keys_dir).enrol(
+            bank_id, display_name=display_name or display_name_for(bank_id),
+            public_key_b64=public_key,
+        )
+    except KeyRingError as exc:
+        console.print(f"[red]refused:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    console.print(f"enrolled [bold]{key.member_id}[/bold] ({key.display_name})")
+    console.print(f"  key id   {key.key_id}")
+    console.print(f"  custody  {key.custody}")
+
+
+@bank_app.command("list")
+def bank_list(keys_dir: Path = typer.Option(Path("keys"), "--keys-dir")) -> None:
+    """Show the trusted key registry (public keys only)."""
+    from fedguard.artifacts import KeyRing
+
+    table = Table(show_header=True)
+    for col in ("member", "name", "role", "key id", "custody"):
+        table.add_column(col)
+    for m in KeyRing(keys_dir).members():
+        table.add_row(m.member_id, m.display_name, m.role, m.key_id, m.custody)
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()

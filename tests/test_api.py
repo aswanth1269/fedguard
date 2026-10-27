@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import fedguard.api.main as api_main
+from fedguard.api.feed import TransactionFeed
 from fedguard.api.jobs import JobStore
 
 
@@ -44,6 +45,12 @@ def client(tmp_path, monkeypatch):
     # test in this file would write real entries into the project's actual
     # results/ledger.jsonl.
     monkeypatch.setattr(api_main, "LEDGER_PATH", tmp_path / "ledger.jsonl")
+    # Same isolation for the artifact registry, its store, the key ring and
+    # the transaction feed - completed jobs register artifacts and sign them.
+    monkeypatch.setattr(api_main, "ARTIFACT_REGISTRY_PATH", tmp_path / "artifact_registry.jsonl")
+    monkeypatch.setattr(api_main, "ARTIFACT_STORE_DIR", tmp_path / "store")
+    monkeypatch.setattr(api_main, "KEYS_DIR", tmp_path / "keys")
+    monkeypatch.setattr(api_main, "_feed", TransactionFeed())
     return TestClient(api_main.app)
 
 
@@ -254,3 +261,53 @@ def test_audit_before_any_rounds_is_empty_not_an_error(client):
 
 def test_audit_unknown_job_404s(client):
     assert client.get("/audit/nope").status_code == 404
+
+
+def test_current_model_status_before_and_after_training(client):
+    before = client.get("/model-status").json()
+    assert before["status"] == "no_job"
+    assert before["job_id"] is None
+
+    job_id = _train_and_wait(client)
+    after = client.get("/model-status").json()
+    assert after["status"] == "complete"
+    assert after["job_id"] == job_id
+    assert len(after["input_cols"]) > 0
+
+
+def test_verify_transaction_hash(client):
+    payload = {"amount": 100.5, "hour": 14, "is_foreign": 0}
+    res = client.post("/verify-transaction-hash", json={"payload": payload}).json()
+    assert res["algorithm"] == "SHA-256"
+    assert len(res["digest"]) == 64
+    assert res["status"] == "DIGEST COMPUTED"
+    orig_digest = res["digest"]
+
+    # Verify matching baseline
+    verified = client.post(
+        "/verify-transaction-hash",
+        json={"payload": payload, "baseline_hash": orig_digest},
+    ).json()
+    assert verified["matches"] is True
+    assert verified["status"] == "VERIFIED"
+
+    # Verify modified payload produces mismatch
+    tampered_payload = {"amount": 9999.0, "hour": 14, "is_foreign": 0}
+    mismatch = client.post(
+        "/verify-transaction-hash",
+        json={"payload": tampered_payload, "baseline_hash": orig_digest},
+    ).json()
+    assert mismatch["matches"] is False
+    assert mismatch["status"] == "HASH MISMATCH"
+    assert mismatch["digest"] != orig_digest
+
+
+def test_demo_warmup(client):
+    resp = client.post("/demo/warmup")
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+    assert job_id is not None
+    # Second call returns existing completed/queued job immediately
+    resp2 = client.post("/demo/warmup")
+    assert resp2.status_code == 202
+    assert resp2.json()["job_id"] == job_id

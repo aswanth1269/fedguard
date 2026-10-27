@@ -159,7 +159,7 @@ def test_prepare_does_not_leak_the_raw_timestamp(raw_dir):
 
 
 def test_trigger_columns_map_to_fixed_codes(raw_dir):
-    """CLAUDE.md rule 5. If these codes ever shifted, every backdoor config in
+    """DESIGN.md rule 5. If these codes ever shifted, every backdoor config in
     configs/ would silently start targeting a different product line."""
     raw = load_raw(raw_dir)
     df = feat.prepare(raw_dir)
@@ -295,7 +295,7 @@ def test_transform_before_fit_raises(prepared):
 
 
 def test_every_client_shares_one_fitted_transform(prepared):
-    """CLAUDE.md rule 7. Two clients transforming through the same instance
+    """DESIGN.md rule 7. Two clients transforming through the same instance
     must produce identical column meanings - the failure mode being guarded
     is client A one-hot encoding a category client B never saw."""
     tf = FrozenTransform().fit(prepared)

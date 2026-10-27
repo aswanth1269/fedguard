@@ -1,7 +1,7 @@
 """The coordinator's decision agent - real accept/reject authority over a
-round, reversing CLAUDE.md's original "no LLM in the accept/reject path".
+round, reversing DESIGN.md's original "no LLM in the accept/reject path".
 
-See CLAUDE.md rule 3 for the dated record of that reversal and the full
+See DESIGN.md rule 3 for the dated record of that reversal and the full
 reasoning. The short version: an LLM voting "approve"/"reject" by having its
 free text parsed would make the decision boundary non-reproducible - a
 different day's model call could flip the same inputs to a different
@@ -32,12 +32,12 @@ consistently:
      across RoundContext.history. This is the one piece of real leverage the
      agent adds on top of the four *stateless* defenses: cross-round memory
      against an intermittent adversary, which is the whole research claim
-     this project is built around (see CLAUDE.md, "The research claim").
+     this project is built around (see DESIGN.md, "The research claim").
 
 A client the defense already rejected is excluded from the agent's flagged
 list - no re-flagging, no double counting, so defense-level exclusions and
 agent-level exclusions stay separately countable for the false-exclusion-rate
-metric CLAUDE.md's reputation spec asks for.
+metric DESIGN.md's reputation spec asks for.
 """
 
 from __future__ import annotations

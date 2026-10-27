@@ -1,6 +1,6 @@
 """docs/api.yaml must match the running app.
 
-This is the enforcement behind CLAUDE.md's "the contract changes only by PR,
+This is the enforcement behind DESIGN.md's "the contract changes only by PR,
 with both teammates notified". Without it that rule depends on someone
 remembering; with it, a route change that skips the contract fails CI, and the
 contract change shows up in the same diff a reviewer is already reading.

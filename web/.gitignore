@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI-assistant instruction files. `next dev` regenerates AGENTS.md on every
+# start (node_modules/next/dist/server/lib/generate-agent-files.js); ignoring
+# it keeps a regenerated copy out of the tree instead of back in a commit.
+AGENTS.md
+CLAUDE.md
+.claude/

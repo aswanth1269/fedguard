@@ -1,0 +1,35 @@
+# Live-demo model trained by POST /demo/warmup (the dashboard's "Initialize
+# model" button). Synthetic data, so it needs no dataset and finishes in
+# seconds on a CPU laptop.
+#
+# The federated model is the PyTorch MLP, aggregated with the cross-round
+# reputation defense. Three simulated banks (bank_0..bank_2, shown as
+# Bank A/B/C) - each trains locally on its own synthetic partition inside this
+# one process. Never report a number from this run: it is synthetic.
+name: demo-mlp
+rounds: 5
+seed: 0
+
+data:
+  source: synthetic
+  n_rows: 8000
+  test_fraction: 0.2
+  seed: 0
+
+partition:
+  strategy: by_column
+  column: client_id
+  n_clients: 3
+  non_iid: 0.7
+
+model:
+  name: mlp
+  lr: 0.001
+  pos_weight: 10.0
+  local_epochs: 3
+
+attack:
+  name: none
+
+defense:
+  name: reputation

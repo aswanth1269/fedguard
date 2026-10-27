@@ -1,11 +1,6 @@
 /**
- * Run records, as produced by the Python harness.
- *
- * `public/data/runs.json` is written by `scripts/export_dashboard_data.py`,
- * which is a pure projection of `results/runs.jsonl`. Nothing in this file
- * recomputes a metric: every number on screen was produced by `metrics.py` and
- * carried through the run record. The dashboard is a view of the decision log,
- * never a second source of truth.
+ * Run records data structures and utilities for FedGuard.
+ * Provides typed access to experimental data exported from the Python harness.
  */
 
 export type RoundPoint = {
@@ -31,11 +26,9 @@ export type RunRecord = {
   durationS: number;
   data: {
     source: string;
-    /** Rows to GENERATE. Synthetic only; meaningless for a fixed dataset. */
     nRows: number;
     maxRows: number | null;
     testFraction: number;
-    /** Rows actually evaluated, from the run's own eval. Use this in copy. */
     nTest: number;
     nPositive: number;
   };
@@ -46,17 +39,25 @@ export type RunRecord = {
     alpha: number;
     non_iid: number;
   };
-  model: { name: string; lr: number; pos_weight: number; local_epochs: number };
+  model: {
+    name: string;
+    hidden?: number[];
+    lr: number;
+    pos_weight: number;
+    local_epochs: number;
+  };
   attack: {
     name: string;
     malicious_clients: string[];
     active_rounds: string | number[];
     params: Record<string, number | string>;
   };
-  defense: { name: string; params: Record<string, number | boolean> };
+  defense: {
+    name: string;
+    params: Record<string, number | boolean>;
+  };
   clients: string[];
   series: RoundPoint[];
-  /** metric -> client (or "_global") -> one value per round */
   diagnostics: Record<string, Record<string, (number | null)[]>>;
   final: {
     pr_auc: number;
@@ -69,10 +70,10 @@ export type RunRecord = {
   } | null;
 };
 
-export type RunsFile = { runs: RunRecord[] };
+export type RunsFile = {
+  runs: RunRecord[];
+};
 
-/** Colour follows the entity, never its rank: bank_2 is violet in every chart
- *  on every page, whether or not it is the one under suspicion. */
 export const SERIES_VAR = [
   "var(--series-1)",
   "var(--series-2)",
@@ -90,28 +91,31 @@ export function isMalicious(run: RunRecord, clientId: string): boolean {
   return run.attack.malicious_clients.includes(clientId);
 }
 
-/** Short human label for a run, e.g. "backdoor 0.8 / reputation".
- *
- *  The poison fraction is part of the label because the same attack and defense
- *  pair gets run at several strengths, and a legend with two entries reading
- *  "backdoor / fedavg" identifies nothing. */
 export function runSummary(run: RunRecord): string {
-  if (run.attack.name === "none") return `no attack / ${run.defense.name}`;
+  if (run.attack.name === "none") return `Clean Baseline / ${run.defense.name.toUpperCase()}`;
   const fraction = run.attack.params?.poison_fraction;
-  const strength = typeof fraction === "number" ? ` ${fraction}` : "";
-  return `${run.attack.name}${strength} / ${run.defense.name}`;
+  const strength = typeof fraction === "number" ? ` (${(fraction * 100).toFixed(0)}% poison)` : "";
+  return `${run.attack.name.toUpperCase()}${strength} / ${run.defense.name.toUpperCase()}`;
 }
 
 export function fmt(value: number | null | undefined, digits = 4): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
   return value.toFixed(digits);
 }
 
 export function fmtPct(value: number | null | undefined, digits = 1): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
   return `${(value * 100).toFixed(digits)}%`;
 }
 
-export function fmtInt(value: number): string {
+export function fmtInt(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
   return value.toLocaleString("en-US");
+}
+
+export function fmtCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "$0.00";
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}k`;
+  return `$${value.toFixed(2)}`;
 }

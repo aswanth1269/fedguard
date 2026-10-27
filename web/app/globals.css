@@ -1,385 +1,668 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   FedGuard token system.
-
-   Two surfaces share one set of tokens: the marketing page and the operator
-   dashboard. Roles, never raw hex, are used in components, so a mode swap
-   happens in exactly one place.
-
-   The five categorical series colours are NOT decorative. They come from the
-   data-viz reference ramps and the ordering was chosen by running the palette
-   validator, not by eye: this order clears the lightness band, chroma floor,
-   adjacent-pair CVD separation (worst deutan dE 13.2 dark / 16.3 light), the
-   normal-vision floor (19.3 / 19.6) and 3:1 contrast on the dark surface. The
-   obvious ordering (blue, orange, yellow) FAILS: yellow beside orange measures
-   dE 4.8 under deuteranopia. Reordering is the fix, so violet separates them.
-
-   Light mode carries a documented contrast WARN on the yellow and magenta
-   series (2.11 and 2.62 against the light surface). The relief is shipped:
-   every chart with <= 4 series is direct-labelled and every chart has a table
-   view, so series identity is never carried by colour alone.
-
-   The brand accent (mint) is deliberately NOT in the series set. A brand colour
-   that also means "bank 3" is a colour that means nothing.
+   FedGuard Futuristic Glassmorphism Design System
+   Dual-Theme Engine (Light & Dark) with Precision High-Contrast Tokens
 --------------------------------------------------------------------------- */
 
 :root {
   color-scheme: light;
 
-  --plane: #f7f7f5;
-  --surface: #fcfcfb;
-  --surface-2: #f1f1ee;
-  --hairline: #e1e0d9;
-  --grid: #e8e7e1;
-  --baseline: #c3c2b7;
+  /* Canvas & Background */
+  --canvas-bg: #f5f7fc;
+  --canvas-mesh-1: rgba(99, 102, 241, 0.08);
+  --canvas-mesh-2: rgba(14, 165, 233, 0.08);
+  --canvas-mesh-3: rgba(16, 185, 129, 0.06);
 
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-muted: #898781;
+  /* Glassmorphic Surfaces */
+  --glass-base: rgba(255, 255, 255, 0.72);
+  --glass-elevated: rgba(255, 255, 255, 0.88);
+  --glass-subtle: rgba(255, 255, 255, 0.45);
+  --glass-interactive: rgba(255, 255, 255, 0.95);
+  --glass-inset: rgba(255, 255, 255, 0.6);
 
-  --accent: #0f9d6a;
-  --accent-hover: #0c8258;
-  --accent-ink: #fcfcfb;
+  /* Glass Borders & Highlights */
+  --glass-border: rgba(226, 232, 240, 0.85);
+  --glass-border-subtle: rgba(226, 232, 240, 0.5);
+  --glass-border-glow: rgba(14, 165, 233, 0.35);
+  --glass-specular: rgba(255, 255, 255, 0.9);
 
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #4a3aa7;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
+  /* Elevation & Shadows */
+  --shadow-glass-sm: 0 2px 8px -1px rgba(15, 23, 42, 0.06), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-glass-md: 0 12px 30px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  --shadow-glass-lg: 0 20px 48px -8px rgba(15, 23, 42, 0.12), 0 8px 24px -4px rgba(15, 23, 42, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  --shadow-glow-cyan: 0 0 24px rgba(14, 165, 233, 0.25);
+  --shadow-glow-emerald: 0 0 24px rgba(16, 185, 129, 0.25);
+  --shadow-glow-rose: 0 0 24px rgba(244, 63, 94, 0.25);
 
-  /* Diverging pair for SHAP attributions: warm pushes the score toward fraud,
-     cool pushes it toward legitimate, and the midpoint is nothing at all. Kept
-     separate from both the categorical series and the status palette so an
-     attribution bar never impersonates either. */
-  --diverge-pos: #e34948;
-  --diverge-neg: #2a78d6;
+  /* Typography Colors */
+  --ink-primary: #0f172a;
+  --ink-secondary: #475569;
+  --ink-muted: #94a3b8;
+  --ink-contrast: #ffffff;
 
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-serious: #ec835a;
-  --status-critical: #d03b3b;
+  /* Brand & Status Accents */
+  --accent-cyan: #0284c7;
+  --accent-cyan-hover: #0369a1;
+  --accent-cyan-glow: rgba(2, 132, 199, 0.18);
 
-  --r-card: 14px;
-  --r-control: 10px;
-  --r-chip: 999px;
+  --accent-emerald: #059669;
+  --accent-emerald-hover: #047857;
+  --accent-emerald-glow: rgba(5, 150, 105, 0.18);
+
+  --accent-indigo: #4f46e5;
+  --accent-indigo-hover: #4338ca;
+  --accent-indigo-glow: rgba(79, 70, 229, 0.18);
+
+  --status-good: #059669;
+  --status-warning: #d97706;
+  --status-critical: #e11d48;
+  --status-info: #0284c7;
+
+  /* Data Visualization Series (5 Consortium Banks) */
+  --series-1: #2563eb; /* Bank 1 / Amex - Royal Azure */
+  --series-2: #ea580c; /* Bank 2 / Discover - Tangerine */
+  --series-3: #7c3aed; /* Bank 3 / Mastercard - Cyber Violet */
+  --series-4: #d97706; /* Bank 4 / Unknown - Amber Gold */
+  --series-5: #db2777; /* Bank 5 / Visa - Hot Magenta */
+
+  /* SHAP Polarity Colors */
+  --shap-fraud: #e11d48;
+  --shap-legit: #2563eb;
+
+  /* Chart Canvas Elements */
+  --chart-grid: rgba(203, 213, 225, 0.6);
+  --chart-crosshair: #0f172a;
+  --chart-tooltip-bg: rgba(255, 255, 255, 0.95);
+
+  /* Border Radii */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 9999px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --plane: #0b0d0e;
-    --surface: #131617;
-    --surface-2: #191d1f;
-    --hairline: #23292b;
-    --grid: #1e2427;
-    --baseline: #2e3639;
+    /* Canvas & Background */
+    --canvas-bg: #07090e;
+    --canvas-mesh-1: rgba(99, 102, 241, 0.12);
+    --canvas-mesh-2: rgba(56, 189, 248, 0.12);
+    --canvas-mesh-3: rgba(52, 211, 153, 0.08);
 
-    --ink: #edf1f1;
-    --ink-2: #a8b2b3;
-    --ink-muted: #7c8688;
+    /* Glassmorphic Surfaces */
+    --glass-base: rgba(15, 23, 42, 0.65);
+    --glass-elevated: rgba(30, 41, 59, 0.75);
+    --glass-subtle: rgba(15, 23, 42, 0.4);
+    --glass-interactive: rgba(30, 41, 59, 0.9);
+    --glass-inset: rgba(0, 0, 0, 0.35);
 
-    --accent: #3ddc97;
-    --accent-hover: #5ee5ad;
-    --accent-ink: #04140d;
+    /* Glass Borders & Highlights */
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-border-subtle: rgba(255, 255, 255, 0.05);
+    --glass-border-glow: rgba(56, 189, 248, 0.4);
+    --glass-specular: rgba(255, 255, 255, 0.15);
 
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #9085e9;
-    --series-4: #c98500;
-    --series-5: #d55181;
+    /* Elevation & Shadows */
+    --shadow-glass-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-glass-md: 0 16px 36px -4px rgba(0, 0, 0, 0.6), 0 6px 16px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+    --shadow-glass-lg: 0 24px 64px -8px rgba(0, 0, 0, 0.8), 0 12px 32px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+    --shadow-glow-cyan: 0 0 32px rgba(56, 189, 248, 0.28);
+    --shadow-glow-emerald: 0 0 32px rgba(52, 211, 153, 0.28);
+    --shadow-glow-rose: 0 0 32px rgba(244, 63, 94, 0.28);
 
-    --diverge-pos: #e66767;
-    --diverge-neg: #3987e5;
+    /* Typography Colors */
+    --ink-primary: #f8fafc;
+    --ink-secondary: #94a3b8;
+    --ink-muted: #64748b;
+    --ink-contrast: #07090e;
+
+    /* Brand & Status Accents */
+    --accent-cyan: #38bdf8;
+    --accent-cyan-hover: #7dd3fc;
+    --accent-cyan-glow: rgba(56, 189, 248, 0.2);
+
+    --accent-emerald: #34d399;
+    --accent-emerald-hover: #6ee7b7;
+    --accent-emerald-glow: rgba(52, 211, 153, 0.2);
+
+    --accent-indigo: #818cf8;
+    --accent-indigo-hover: #a5b4fc;
+    --accent-indigo-glow: rgba(129, 140, 248, 0.2);
+
+    --status-good: #34d399;
+    --status-warning: #fbbf24;
+    --status-critical: #f43f5e;
+    --status-info: #38bdf8;
+
+    /* Data Visualization Series */
+    --series-1: #60a5fa;
+    --series-2: #f97316;
+    --series-3: #a78bfa;
+    --series-4: #fbbf24;
+    --series-5: #f472b6;
+
+    /* SHAP Polarity Colors */
+    --shap-fraud: #f43f5e;
+    --shap-legit: #38bdf8;
+
+    /* Chart Canvas Elements */
+    --chart-grid: rgba(51, 65, 85, 0.5);
+    --chart-crosshair: #f8fafc;
+    --chart-tooltip-bg: rgba(15, 23, 42, 0.95);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --plane: #0b0d0e;
-  --surface: #131617;
-  --surface-2: #191d1f;
-  --hairline: #23292b;
-  --grid: #1e2427;
-  --baseline: #2e3639;
+  /* Canvas & Background */
+  --canvas-bg: #07090e;
+  --canvas-mesh-1: rgba(99, 102, 241, 0.12);
+  --canvas-mesh-2: rgba(56, 189, 248, 0.12);
+  --canvas-mesh-3: rgba(52, 211, 153, 0.08);
 
-  --ink: #edf1f1;
-  --ink-2: #a8b2b3;
-  --ink-muted: #7c8688;
+  /* Glassmorphic Surfaces */
+  --glass-base: rgba(15, 23, 42, 0.65);
+  --glass-elevated: rgba(30, 41, 59, 0.75);
+  --glass-subtle: rgba(15, 23, 42, 0.4);
+  --glass-interactive: rgba(30, 41, 59, 0.9);
+  --glass-inset: rgba(0, 0, 0, 0.35);
 
-  --accent: #3ddc97;
-  --accent-hover: #5ee5ad;
-  --accent-ink: #04140d;
+  /* Glass Borders & Highlights */
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-border-subtle: rgba(255, 255, 255, 0.05);
+  --glass-border-glow: rgba(56, 189, 248, 0.4);
+  --glass-specular: rgba(255, 255, 255, 0.15);
 
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #9085e9;
-  --series-4: #c98500;
-  --series-5: #d55181;
+  /* Elevation & Shadows */
+  --shadow-glass-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-glass-md: 0 16px 36px -4px rgba(0, 0, 0, 0.6), 0 6px 16px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  --shadow-glass-lg: 0 24px 64px -8px rgba(0, 0, 0, 0.8), 0 12px 32px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  --shadow-glow-cyan: 0 0 32px rgba(56, 189, 248, 0.28);
+  --shadow-glow-emerald: 0 0 32px rgba(52, 211, 153, 0.28);
+  --shadow-glow-rose: 0 0 32px rgba(244, 63, 94, 0.28);
 
-  --diverge-pos: #e66767;
-  --diverge-neg: #3987e5;
+  /* Typography Colors */
+  --ink-primary: #f8fafc;
+  --ink-secondary: #94a3b8;
+  --ink-muted: #64748b;
+  --ink-contrast: #07090e;
+
+  /* Brand & Status Accents */
+  --accent-cyan: #38bdf8;
+  --accent-cyan-hover: #7dd3fc;
+  --accent-cyan-glow: rgba(56, 189, 248, 0.2);
+
+  --accent-emerald: #34d399;
+  --accent-emerald-hover: #6ee7b7;
+  --accent-emerald-glow: rgba(52, 211, 153, 0.2);
+
+  --accent-indigo: #818cf8;
+  --accent-indigo-hover: #a5b4fc;
+  --accent-indigo-glow: rgba(129, 140, 248, 0.2);
+
+  --status-good: #34d399;
+  --status-warning: #fbbf24;
+  --status-critical: #f43f5e;
+  --status-info: #38bdf8;
+
+  /* Data Visualization Series */
+  --series-1: #60a5fa;
+  --series-2: #f97316;
+  --series-3: #a78bfa;
+  --series-4: #fbbf24;
+  --series-5: #f472b6;
+
+  /* SHAP Polarity Colors */
+  --shap-fraud: #f43f5e;
+  --shap-legit: #38bdf8;
+
+  /* Chart Canvas Elements */
+  --chart-grid: rgba(51, 65, 85, 0.5);
+  --chart-crosshair: #f8fafc;
+  --chart-tooltip-bg: rgba(15, 23, 42, 0.95);
 }
 
-@theme inline {
-  --color-plane: var(--plane);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-hairline: var(--hairline);
-  --color-grid: var(--grid);
-  --color-baseline: var(--baseline);
+:root[data-theme="light"] {
+  color-scheme: light;
 
-  --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-ink-muted: var(--ink-muted);
+  /* Canvas & Background */
+  --canvas-bg: #f5f7fc;
+  --canvas-mesh-1: rgba(99, 102, 241, 0.08);
+  --canvas-mesh-2: rgba(14, 165, 233, 0.08);
+  --canvas-mesh-3: rgba(16, 185, 129, 0.06);
 
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-ink: var(--accent-ink);
+  /* Glassmorphic Surfaces */
+  --glass-base: rgba(255, 255, 255, 0.72);
+  --glass-elevated: rgba(255, 255, 255, 0.88);
+  --glass-subtle: rgba(255, 255, 255, 0.45);
+  --glass-interactive: rgba(255, 255, 255, 0.95);
+  --glass-inset: rgba(255, 255, 255, 0.6);
 
-  --color-series-1: var(--series-1);
-  --color-series-2: var(--series-2);
-  --color-series-3: var(--series-3);
-  --color-series-4: var(--series-4);
-  --color-series-5: var(--series-5);
+  /* Glass Borders & Highlights */
+  --glass-border: rgba(226, 232, 240, 0.85);
+  --glass-border-subtle: rgba(226, 232, 240, 0.5);
+  --glass-border-glow: rgba(14, 165, 233, 0.35);
+  --glass-specular: rgba(255, 255, 255, 0.9);
 
-  --color-diverge-pos: var(--diverge-pos);
-  --color-diverge-neg: var(--diverge-neg);
+  /* Elevation & Shadows */
+  --shadow-glass-sm: 0 2px 8px -1px rgba(15, 23, 42, 0.06), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-glass-md: 0 12px 30px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  --shadow-glass-lg: 0 20px 48px -8px rgba(15, 23, 42, 0.12), 0 8px 24px -4px rgba(15, 23, 42, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  --shadow-glow-cyan: 0 0 24px rgba(14, 165, 233, 0.25);
+  --shadow-glow-emerald: 0 0 24px rgba(16, 185, 129, 0.25);
+  --shadow-glow-rose: 0 0 24px rgba(244, 63, 94, 0.25);
 
-  --color-good: var(--status-good);
-  --color-warning: var(--status-warning);
-  --color-serious: var(--status-serious);
-  --color-critical: var(--status-critical);
+  /* Typography Colors */
+  --ink-primary: #0f172a;
+  --ink-secondary: #475569;
+  --ink-muted: #94a3b8;
+  --ink-contrast: #ffffff;
 
-  --radius-card: var(--r-card);
-  --radius-control: var(--r-control);
+  /* Brand & Status Accents */
+  --accent-cyan: #0284c7;
+  --accent-cyan-hover: #0369a1;
+  --accent-cyan-glow: rgba(2, 132, 199, 0.18);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --accent-emerald: #059669;
+  --accent-emerald-hover: #047857;
+  --accent-emerald-glow: rgba(5, 150, 105, 0.18);
 
-html {
-  background: var(--plane);
-}
+  --accent-indigo: #4f46e5;
+  --accent-indigo-hover: #4338ca;
+  --accent-indigo-glow: rgba(79, 70, 229, 0.18);
 
-body {
-  /* Transparent so the ambient wash on body::before shows through; html still
-     paints --plane underneath it. */
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
+  --status-good: #059669;
+  --status-warning: #d97706;
+  --status-critical: #e11d48;
+  --status-info: #0284c7;
 
-/* Numbers that sit in columns must align; standalone figures keep proportional
-   figures so a hero number does not look like a spreadsheet cell. */
-.tnum {
-  font-variant-numeric: tabular-nums;
-}
+  /* Data Visualization Series */
+  --series-1: #2563eb;
+  --series-2: #ea580c;
+  --series-3: #7c3aed;
+  --series-4: #d97706;
+  --series-5: #db2777;
 
-::selection {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
+  /* SHAP Polarity Colors */
+  --shap-fraud: #e11d48;
+  --shap-legit: #2563eb;
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* Above-the-fold entry animation.
-   Deliberately CSS rather than JS: a viewport-observer reveal cannot be trusted
-   for content that is already on screen at first paint, and a JS mount
-   animation that silently fails leaves the hero invisible. A keyframe always
-   runs, and the reduced-motion block above already neutralises it. */
-@keyframes fg-reveal {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.fg-reveal {
-  animation: fg-reveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* No scroll-linked reveal below the fold, deliberately.
-
-   It was implemented twice and removed twice. A view-timeline animation runs on
-   the compositor, which means the element's painted opacity can disagree with
-   its computed style: correct for a human scrolling, wrong for frame capture,
-   print, and anything that rasterises the page out of band. Combined with the
-   earlier failure mode, where a JS observer left whole sections at opacity 0,
-   the pattern has a bad record here for something whose entire contribution is
-   a 550ms fade.
-
-   Motion on this page is now the hero entry, hover and active states, and the
-   chart interactions. All of it either runs or is visibly absent; none of it
-   can silently eat the content. */
-.fg-reveal-view {
-  /* intentionally inert: the wrapper stays for layout and section structure */
+  /* Chart Canvas Elements */
+  --chart-grid: rgba(203, 213, 225, 0.6);
+  --chart-crosshair: #0f172a;
+  --chart-tooltip-bg: rgba(255, 255, 255, 0.95);
 }
 
 /* ---------------------------------------------------------------------------
-   GLASS MATERIALS
-
-   Frosted surfaces, added as a material layer rather than a rewrite: the token
-   system, the series ramps and their validation all stand unchanged, and glass
-   is applied on top of them.
-
-   THE CONTRAST PROBLEM, AND WHY THESE TINTS ARE OPAQUE
-
-   The thin 10%-alpha glass that the aesthetic is known for makes the effective
-   background of a panel unknowable, because it becomes whatever happens to be
-   scrolling underneath. Every contrast figure documented at the top of this
-   file is a measurement against a KNOWN background, so thin glass would quietly
-   invalidate all of them.
-
-   These tints are therefore deliberately heavy (72% light, 66% dark). Blur and
-   the edge treatment carry the material read; the tint keeps text contrast
-   effectively unchanged. Measured against the composited surface:
-
-     --ink on solid surface   19.17 light / 15.98 dark   (the baseline)
-     --ink on .glass          18.94 light / 16.40 dark
-     --ink-2 on .glass         7.64 light /  8.61 dark
-
-   So the cost of the material is 0.23 in light mode, and dark mode is very
-   slightly better. Anyone lowering these alphas is trading a measured guarantee
-   for a visual effect, and should re-run those numbers rather than assume.
-
-   Pre-existing and NOT caused by glass: --ink-muted measures 3.50 on the solid
-   surface and 3.46 on glass in light mode, i.e. below AA for body text either
-   way. It is used only for de-emphasised labels, never for body copy.
-
-   TWO MATERIALS, NOT ONE
-
-   .glass        chrome and panels: header, status panels, empty states, cards.
-   .glass-quiet  containers wrapping dense data. Nearly opaque. Table rows and
-                 chart plot areas need a fixed backdrop, because a series colour
-                 read against a moving background is exactly the failure the
-                 palette validation exists to prevent.
+   Global Reset & Base Canvas
 --------------------------------------------------------------------------- */
 
-:root {
-  --glass-tint: rgb(252 252 251 / 0.72);
-  --glass-tint-quiet: rgb(252 252 251 / 0.93);
-  --glass-border: rgb(255 255 255 / 0.55);
-  --glass-highlight: rgb(255 255 255 / 0.65);
-  --glass-shadow: 0 16px 40px -18px rgb(35 40 42 / 0.28);
-  --glass-blur: 20px;
-
-  /* Ambient wash. Without something behind it, glass refracts nothing and
-     reads as flat grey. Drawn from the accent and two series hues already in
-     the palette rather than an unrelated gradient, and kept at very low alpha
-     so it never competes with chart colour. */
-  --aurora-a: rgb(15 157 106 / 0.10);
-  --aurora-b: rgb(42 120 214 / 0.09);
-  --aurora-c: rgb(74 58 167 / 0.07);
+* {
+  border-color: var(--glass-border);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --glass-tint: rgb(19 22 23 / 0.66);
-    --glass-tint-quiet: rgb(19 22 23 / 0.93);
-    --glass-border: rgb(255 255 255 / 0.10);
-    --glass-highlight: rgb(255 255 255 / 0.14);
-    --glass-shadow: 0 18px 48px -20px rgb(0 0 0 / 0.65);
-
-    --aurora-a: rgb(61 220 151 / 0.10);
-    --aurora-b: rgb(57 135 229 / 0.10);
-    --aurora-c: rgb(144 133 233 / 0.08);
-  }
+body {
+  background-color: var(--canvas-bg);
+  color: var(--ink-primary);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-:root[data-theme="dark"] {
-  --glass-tint: rgb(19 22 23 / 0.66);
-  --glass-tint-quiet: rgb(19 22 23 / 0.93);
-  --glass-border: rgb(255 255 255 / 0.10);
-  --glass-highlight: rgb(255 255 255 / 0.14);
-  --glass-shadow: 0 18px 48px -20px rgb(0 0 0 / 0.65);
-
-  --aurora-a: rgb(61 220 151 / 0.10);
-  --aurora-b: rgb(57 135 229 / 0.10);
-  --aurora-c: rgb(144 133 233 / 0.08);
-}
-
-/* The wash sits behind body content and above html's base colour. Fixed and
-   pointer-events:none so it never enters hit-testing or repaints on scroll. */
+/* Ambient Cyber Mesh Aura */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: -1;
+  background-image: 
+    radial-gradient(circle at 15% 10%, var(--canvas-mesh-1) 0%, transparent 40%),
+    radial-gradient(circle at 85% 20%, var(--canvas-mesh-2) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, var(--canvas-mesh-3) 0%, transparent 50%);
   pointer-events: none;
-  background:
-    radial-gradient(60rem 40rem at 12% -10%, var(--aurora-a), transparent 60%),
-    radial-gradient(50rem 38rem at 92% 8%, var(--aurora-b), transparent 62%),
-    radial-gradient(46rem 40rem at 55% 108%, var(--aurora-c), transparent 60%);
+  z-index: 0;
 }
 
-.glass,
-.glass-quiet {
-  position: relative;
-  background: var(--glass-tint);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+/* Cyber Grid Texture */
+.cyber-grid-overlay {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, var(--glass-border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--glass-border-subtle) 1px, transparent 1px);
+}
+
+/* ---------------------------------------------------------------------------
+   Glassmorphic Utility Classes
+--------------------------------------------------------------------------- */
+
+.glass-card {
+  background: var(--glass-base);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  /* Inset top highlight is what reads as a physical edge. Without it the panel
-     is just a blurred rectangle. */
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    var(--glass-shadow);
+  box-shadow: var(--shadow-glass-md);
+  border-radius: var(--radius-md);
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.glass-quiet {
-  background: var(--glass-tint-quiet);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
+.glass-card:hover {
+  border-color: var(--glass-border-glow);
 }
 
-/* Required fallback. Reduced transparency is an accessibility preference, and
-   for some readers blur behind text is the barrier rather than the decoration.
-   Everything collapses to the solid surfaces the palette was measured against,
-   which is why those tokens were never removed. */
-@media (prefers-reduced-transparency: reduce) {
-  .glass,
-  .glass-quiet {
-    background: var(--surface);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    border-color: var(--hairline);
-    box-shadow: none;
+.glass-card-elevated {
+  background: var(--glass-elevated);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass-lg);
+  border-radius: var(--radius-lg);
+}
+
+.glass-card-subtle {
+  background: var(--glass-subtle);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--shadow-glass-sm);
+  border-radius: var(--radius-sm);
+}
+
+.glass-pill {
+  background: var(--glass-elevated);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+}
+
+.glass-input {
+  background: var(--glass-subtle);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  color: var(--ink-primary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px var(--accent-cyan-glow);
+  background: var(--glass-base);
+}
+
+/* Tabular Numbers */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-muted);
+  opacity: 0.4;
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   Keyframe Animations
+--------------------------------------------------------------------------- */
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
   }
-
-  body::before {
-    display: none;
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
   }
 }
 
-/* Same collapse where backdrop-filter is unsupported, so the panel is never a
-   flat translucent rectangle with text struggling on top of it. */
-@supports not (backdrop-filter: blur(1px)) {
-  .glass,
-  .glass-quiet {
-    background: var(--surface);
-    border-color: var(--hairline);
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--glass-subtle) 25%,
+    var(--glass-elevated) 50%,
+    var(--glass-subtle) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Liquidmorphism Extension Layer
+   Organic, fluid surfaces that breathe and morph — layered over glassmorphism
+--------------------------------------------------------------------------- */
+
+/* Liquid surface: morphing border-radius + fluid blur */
+.liquid-card {
+  background: var(--glass-base);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass-md);
+  border-radius: 28px 16px 28px 16px;
+  transition: border-radius 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), 
+              box-shadow 0.3s ease,
+              transform 0.3s ease,
+              border-color 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-card:hover {
+  border-radius: 16px 28px 16px 28px;
+  border-color: var(--glass-border-glow);
+  transform: translateY(-2px);
+}
+
+.liquid-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    var(--glass-specular) 0%,
+    transparent 50%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Liquid blob hero accent — organic animated shape */
+.liquid-blob {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  animation: liquidMorph 8s ease-in-out infinite;
+  filter: blur(0px);
+}
+
+@keyframes liquidMorph {
+  0%   { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  25%  { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  50%  { border-radius: 50% 60% 30% 60% / 30% 70% 40% 60%; }
+  75%  { border-radius: 70% 30% 60% 40% / 40% 50% 60% 50%; }
+  100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+}
+
+/* Liquid stat card: hero kpi with organic blob glow */
+.liquid-stat {
+  background: var(--glass-base);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass-md);
+  border-radius: 20px 28px 16px 24px;
+  transition: border-radius 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-stat:hover {
+  border-radius: 28px 16px 24px 20px;
+  transform: translateY(-3px) scale(1.01);
+}
+
+/* Liquid nav sidebar */
+.liquid-sidebar {
+  background: var(--glass-elevated);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass-lg);
+}
+
+/* Liquid table row */
+.liquid-row {
+  border-radius: 12px;
+  transition: background 0.2s ease, border-radius 0.3s ease, transform 0.2s ease;
+}
+
+.liquid-row:hover {
+  background: var(--glass-subtle);
+  border-radius: 14px 8px 14px 8px;
+  transform: translateX(2px);
+}
+
+/* Liquid badge: morphing pill */
+.liquid-badge {
+  border-radius: 12px 6px 12px 6px;
+  transition: border-radius 0.4s ease;
+  backdrop-filter: blur(8px);
+}
+
+.liquid-badge:hover {
+  border-radius: 6px 12px 6px 12px;
+}
+
+/* Liquid button */
+.liquid-btn {
+  border-radius: 16px 8px 16px 8px;
+  transition: border-radius 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.liquid-btn:hover {
+  border-radius: 8px 16px 8px 16px;
+  transform: translateY(-1px);
+}
+
+.liquid-btn:active {
+  transform: scale(0.98);
+  border-radius: 12px;
+}
+
+/* Liquid portal hero */
+.liquid-hero-blob {
+  position: absolute;
+  border-radius: 60% 40% 55% 45% / 45% 55% 40% 60%;
+  animation: liquidMorph 10s ease-in-out infinite;
+  pointer-events: none;
+  filter: blur(40px);
+  opacity: 0.15;
+}
+
+/* Liquid progress bar */
+.liquid-progress-track {
+  background: var(--glass-inset);
+  border-radius: 100px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.liquid-progress-fill {
+  border-radius: 100px;
+  transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
+  background-size: 200% 100%;
+}
+
+/* Floating orb accent behind portal cards */
+@keyframes floatOrb {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-16px) rotate(5deg); }
+  66% { transform: translateY(8px) rotate(-5deg); }
+}
+
+.liquid-orb {
+  animation: floatOrb 6s ease-in-out infinite;
+}
+
+/* Alert pulse ring for critical items */
+@keyframes liquidRing {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  100% { box-shadow: 0 0 0 12px currentColor; opacity: 0; }
+}
+
+.liquid-alert-ring {
+  animation: liquidRing 2s ease-out infinite;
+}
+
+/* Entry fade + float animation for portal cards */
+@keyframes liquidEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+    border-radius: 50% 30% 50% 30% / 30% 50% 30% 50%;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    border-radius: 28px 16px 28px 16px;
+  }
+}
+
+.liquid-enter {
+  animation: liquidEnter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.liquid-enter-1 { animation-delay: 0.05s; }
+.liquid-enter-2 { animation-delay: 0.1s; }
+.liquid-enter-3 { animation-delay: 0.15s; }
+.liquid-enter-4 { animation-delay: 0.2s; }
+.liquid-enter-5 { animation-delay: 0.25s; }
+.liquid-enter-6 { animation-delay: 0.3s; }

@@ -6,7 +6,7 @@ Layers, in order:
   llm_client.py       - pluggable text-completion interface, stub by default
   agent.py            - the round's authoritative accept/reject ruling
 
-See CLAUDE.md rule 3 for why the agent's ruling, not the raw defense output
+See DESIGN.md rule 3 for why the agent's ruling, not the raw defense output
 alone, is authoritative here, and for what stays deterministic regardless.
 
 NOT yet wired into experiment.py's round loop, and no api/ layer or

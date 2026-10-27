@@ -8,7 +8,7 @@ even by whoever holds write access. What this provides is tamper-EVIDENCE -
 silent tampering with ``results/ledger.jsonl`` is detectable by ``verify()``
 - not tamper-RESISTANCE. Someone with filesystem access and enough effort
 could still rewrite the whole file and produce a new, internally-consistent
-but fabricated chain. See CLAUDE.md for the dated record of this choice over
+but fabricated chain. See DESIGN.md for the dated record of this choice over
 a real Solidity/Hardhat deployment.
 
 Persistence is one JSON object per line in an append-only file, the same

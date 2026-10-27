@@ -1,7 +1,7 @@
 """Deterministic pre-flight checks on client updates, before aggregation.
 
 This is NOT the fraud-suspicion judgment - that is coordinator/agent.py, and
-CLAUDE.md rule 3 explicitly allows that to use an LLM for narrative. This
+DESIGN.md rule 3 explicitly allows that to use an LLM for narrative. This
 module only rejects updates that are structurally broken: wrong shape,
 NaN/Inf, a non-positive sample count, an exploded norm. Nothing here is a
 judgment call, so nothing here needs a model - NaN is NaN regardless of who
