@@ -18,7 +18,7 @@ and test; ``api/predict.py`` loads the same file and applies the same
 arithmetic to a live transaction. There is one implementation and one set of
 numbers, so there is nothing to drift.
 
-The same object is what enforces CLAUDE.md rule 7. Every simulated bank in the
+The same object is what enforces DESIGN.md rule 7. Every simulated bank in the
 federation transforms through this one fitted instance, so a category one
 client has never seen cannot shift another client's column meanings. In a real
 deployment the coordinator would distribute this file at enrolment; the

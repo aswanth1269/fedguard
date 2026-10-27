@@ -56,6 +56,9 @@ class LogisticReference(Model):
     def get_params(self) -> Params:
         return [self.w.copy(), np.array([self.b])]
 
+    def param_names(self) -> list[str]:
+        return ["weight", "bias"]
+
     def set_params(self, params: Params) -> None:
         self.w = np.asarray(params[0], dtype=float).copy()
         self.b = float(np.asarray(params[1]).ravel()[0])

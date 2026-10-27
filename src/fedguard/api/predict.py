@@ -64,6 +64,23 @@ class PredictionService:
     def from_job(cls, job: Job) -> PredictionService:
         return cls(job)
 
+    # Read-only access for api/explain.py, so an explanation runs the SAME
+    # loaded model and fitted transform that produced the score.
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def input_cols(self) -> list[str]:
+        return list(self._input_cols)
+
+    @property
+    def feature_cols(self) -> list[str]:
+        return list(self._feature_cols)
+
+    def vectorise(self, features: dict[str, float]):
+        return self._vectorise(pd.DataFrame([{c: features[c] for c in self._input_cols}]))
+
     def predict(self, features: dict[str, float]) -> PredictionResult:
         missing = [c for c in self._input_cols if c not in features]
         if missing:

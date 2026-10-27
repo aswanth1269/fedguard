@@ -7,7 +7,7 @@
 #
 # Edit the FastAPI route or the pydantic model instead; this file follows.
 #
-# CROSS-TEAM RULES (CLAUDE.md)
+# CROSS-TEAM RULES (DESIGN.md)
 #   This contract changes only by PR, and both Nikunj (blockchain service) and
 #   Alankrita (dashboard) must be notified of any change. Adding a route is
 #   additive and safe. Renaming or removing a field is a breaking change for
@@ -87,6 +87,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TrainAccepted'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /model-status:
+    get:
+      summary: Current Model Status
+      description: 'Returns the latest completed training job''s metadata and expected features,
+
+        or status=''no_job'' if none has run yet.'
+      operationId: current_model_status_model_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentModelStatusResponse'
+  /demo/warmup:
+    post:
+      summary: Demo Warmup
+      description: 'Trains the demo model from configs/demo_mlp.yaml (PyTorch MLP, three
+
+        simulated banks, reputation defense, synthetic data).
+
+
+        Returns an already queued/running job instead of starting a second one,
+
+        and returns the last completed job unless ``force=true`` asks for a new
+
+        training run.'
+      operationId: demo_warmup_demo_warmup_post
+      parameters:
+      - name: force
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Force
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainAccepted'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /verify-transaction-hash:
+    post:
+      summary: Verify Transaction Hash
+      description: 'Computes the canonical SHA-256 digest of arbitrary payload using the exact
+
+        canonical serialization (keys sorted, no whitespace) used by the ledger and
+
+        blockchain commitments, and optionally verifies against a baseline reference.'
+      operationId: verify_transaction_hash_verify_transaction_hash_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyHashRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyHashResponse'
         '422':
           description: Validation Error
           content:
@@ -323,6 +400,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /explain:
+    post:
+      summary: Explain Prediction
+      description: 'Why the model scored this input as it did: exact Shapley values over the
+
+        raw inputs (see api/explain.py). Separate from /predict on purpose, so an
+
+        explanation failure can never block or alter a score.'
+      operationId: explain_prediction_explain_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExplainResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /ledger:
     get:
       summary: Ledger
@@ -439,8 +544,382 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /transactions:
+    post:
+      summary: Ingest Transaction
+      description: 'Scores one transaction with the current global model and appends it to
+
+        the feed. ``transaction_id`` is deduplicated (409 on a repeat).'
+      operationId: ingest_transaction_transactions_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Ingest Transaction Transactions Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      summary: List Transactions
+      description: 'Events with ``seq > after``, oldest first. Poll with the returned
+
+        ``latest_seq`` as the next ``after`` to receive each event exactly once.'
+      operationId: list_transactions_transactions_get
+      parameters:
+      - name: after
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: After
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Transactions Transactions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /demo/transactions:
+    post:
+      summary: Demo Transactions
+      description: 'SYNTHETIC demonstration traffic. Draws the next rows from a held-out
+
+        synthetic block, scores each with the real model, and labels every event
+
+        ``source: "synthetic_demo"``. This is not a bank feed.'
+      operationId: demo_transactions_demo_transactions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DemoTransactionsRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Demo Transactions Demo Transactions Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /integrity/status:
+    get:
+      summary: Integrity Status
+      operationId: integrity_status_integrity_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Integrity Status Integrity Status Get
+  /banks:
+    get:
+      summary: Banks
+      description: 'Every enrolled bank plus every bank in the latest federation, with its
+
+        real contribution history. Nothing here is estimated.'
+      operationId: banks_banks_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Banks Banks Get
+  /artifacts:
+    get:
+      summary: List Artifacts
+      operationId: list_artifacts_artifacts_get
+      parameters:
+      - name: artifact_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Type
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Artifacts Artifacts Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /artifacts/{seq}:
+    get:
+      summary: Get Artifact
+      operationId: get_artifact_artifacts__seq__get
+      parameters:
+      - name: seq
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Seq
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Artifact Artifacts  Seq  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /artifacts/{seq}/download:
+    get:
+      summary: Download Artifact
+      description: 'Model artifacts only. Datasets stay on the coordinator - they are bank
+
+        transaction data and never leave through the API.'
+      operationId: download_artifact_artifacts__seq__download_get
+      parameters:
+      - name: seq
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Seq
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /artifacts/{seq}/verify:
+    post:
+      summary: Verify Artifact
+      description: 'Checks candidate content against version ``seq``''s trusted hash.
+
+        ``stored`` re-hashes the stored file, ``modified_copy`` alters an in-memory
+
+        copy (the stored file is never touched), ``upload`` checks your file.'
+      operationId: verify_artifact_artifacts__seq__verify_post
+      parameters:
+      - name: seq
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Seq
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyArtifactRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyArtifactResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /artifacts/submit:
+    post:
+      summary: Submit Artifact
+      description: 'The real submission path: the member signs
+
+        ``artifacts.signing.submission_message`` with its own key, off-server.'
+      operationId: submit_artifact_artifacts_submit_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitArtifactRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /demo/bank-signer/model-update:
+    post:
+      summary: Demo Signer Model Update
+      description: "SIMULATED BANK SIGNER. Builds a model update for a simulated bank,\nsigns it with\
+        \ that bank's server-held key, and sends it through the exact\nsame validation pipeline as POST\
+        \ /artifacts/submit. Each scenario shapes\nonly the INPUT; the outcome is whatever the decision\
+        \ engine returns.\n\nlegitimate_retrain - real local training from the round's base model on\n\
+        \    the bank's own partition (one more epoch per existing version, so each\n    retrain is a\
+        \ genuinely new update)\nmalicious_update   - that retrain, then the project's own sign-flip attack\n\
+        \    (attacks/sign_flip.py, scale 5), correctly signed by the bank\nimpersonation      - another\
+        \ bank signs a submission claiming to be this one\ninvalid_signature  - a valid signature over\
+        \ different content\nwrong_architecture - a correctly signed update from a differently shaped\
+        \ MLP\nbank_publishes_global_model - the bank tries to publish a global model"
+      operationId: demo_signer_model_update_demo_bank_signer_model_update_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DemoSignerModelUpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /demo/bank-signer/upload:
+    post:
+      summary: Demo Signer Upload
+      description: 'SIMULATED BANK SIGNER for a file chosen in the browser (a dataset CSV
+
+        or a model-update .npz). The browser never holds a key, so the server
+
+        signs as the simulated bank, then validates exactly as /artifacts/submit.'
+      operationId: demo_signer_upload_demo_bank_signer_upload_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DemoSignerUploadRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    ActiveJob:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+        status:
+          type: string
+          title: Status
+        config_name:
+          type: string
+          title: Config Name
+        model_name:
+          type: string
+          title: Model Name
+        rounds_done:
+          type: integer
+          title: Rounds Done
+        rounds_total:
+          type: integer
+          title: Rounds Total
+        submitted_at:
+          type: number
+          title: Submitted At
+      type: object
+      required:
+      - job_id
+      - status
+      - config_name
+      - model_name
+      - rounds_done
+      - rounds_total
+      - submitted_at
+      title: ActiveJob
     ApproveModelRequest:
       properties:
         job_id:
@@ -512,6 +991,72 @@ components:
         config that omits this section entirely behaves identically to one that
 
         spells it out.'
+    CurrentModelStatusResponse:
+      properties:
+        job_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Job Id
+        status:
+          type: string
+          title: Status
+        threshold:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Threshold
+        input_cols:
+          items:
+            type: string
+          type: array
+          title: Input Cols
+          default: []
+        final:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Final
+        model:
+          anyOf:
+          - $ref: '#/components/schemas/ModelProvenance'
+          - type: 'null'
+        participants:
+          anyOf:
+          - additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+          - type: 'null'
+          title: Participants
+        completed_at:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Completed At
+        active_job:
+          anyOf:
+          - $ref: '#/components/schemas/ActiveJob'
+          - type: 'null'
+        last_failure:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Last Failure
+        warnings:
+          items:
+            type: string
+          type: array
+          title: Warnings
+          default: []
+      type: object
+      required:
+      - job_id
+      - status
+      title: CurrentModelStatusResponse
     DataConfig:
       properties:
         source:
@@ -563,6 +1108,70 @@ components:
           title: Params
       type: object
       title: DefenseConfig
+    DemoSignerModelUpdateRequest:
+      properties:
+        member_id:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Member Id
+        scenario:
+          type: string
+          enum:
+          - legitimate_retrain
+          - malicious_update
+          - impersonation
+          - invalid_signature
+          - wrong_architecture
+          - bank_publishes_global_model
+          title: Scenario
+          default: legitimate_retrain
+      type: object
+      required:
+      - member_id
+      title: DemoSignerModelUpdateRequest
+    DemoSignerUploadRequest:
+      properties:
+        member_id:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Member Id
+        artifact_type:
+          type: string
+          enum:
+          - model_update
+          - dataset
+          title: Artifact Type
+        round:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Round
+        payload_b64:
+          type: string
+          title: Payload B64
+        claims_version_seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Claims Version Seq
+      type: object
+      required:
+      - member_id
+      - artifact_type
+      - payload_b64
+      title: DemoSignerUploadRequest
+    DemoTransactionsRequest:
+      properties:
+        count:
+          type: integer
+          maximum: 20.0
+          minimum: 1.0
+          title: Count
+          default: 1
+      type: object
+      title: DemoTransactionsRequest
     ExperimentConfig:
       properties:
         name:
@@ -591,6 +1200,69 @@ components:
           $ref: '#/components/schemas/CoordinatorConfig'
       type: object
       title: ExperimentConfig
+    ExplainResponse:
+      properties:
+        probability:
+          type: number
+          title: Probability
+        label:
+          type: integer
+          title: Label
+        threshold:
+          type: number
+          title: Threshold
+        job_id:
+          type: string
+          title: Job Id
+        method:
+          type: string
+          title: Method
+        output_scale:
+          type: string
+          title: Output Scale
+        base_value:
+          type: number
+          title: Base Value
+        background_size:
+          type: integer
+          title: Background Size
+        contributions:
+          items:
+            $ref: '#/components/schemas/FeatureContribution'
+          type: array
+          title: Contributions
+      type: object
+      required:
+      - probability
+      - label
+      - threshold
+      - job_id
+      - method
+      - output_scale
+      - base_value
+      - background_size
+      - contributions
+      title: ExplainResponse
+      description: 'Exact Shapley-value attribution for one scored transaction. The score
+
+        fields are the same ones /predict returns for the same input.'
+    FeatureContribution:
+      properties:
+        feature:
+          type: string
+          title: Feature
+        value:
+          type: number
+          title: Value
+        contribution:
+          type: number
+          title: Contribution
+      type: object
+      required:
+      - feature
+      - value
+      - contribution
+      title: FeatureContribution
     HTTPValidationError:
       properties:
         detail:
@@ -631,6 +1303,56 @@ components:
           default: 3
       type: object
       title: ModelConfig
+    ModelProvenance:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+        model_name:
+          type: string
+          title: Model Name
+        model_family:
+          type: string
+          title: Model Family
+        config_name:
+          type: string
+          title: Config Name
+        config_hash:
+          type: string
+          title: Config Hash
+        rounds:
+          type: integer
+          title: Rounds
+        defense:
+          type: string
+          title: Defense
+        data_source:
+          type: string
+          title: Data Source
+        global_model_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Global Model Version
+        global_model_hash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Global Model Hash
+      type: object
+      required:
+      - job_id
+      - model_name
+      - model_family
+      - config_name
+      - config_hash
+      - rounds
+      - defense
+      - data_source
+      title: ModelProvenance
+      description: 'Which model produced a score. Additive to the original response: the
+
+        four original PredictResponse fields are unchanged.'
     PartitionConfig:
       properties:
         strategy:
@@ -685,6 +1407,10 @@ components:
         job_id:
           type: string
           title: Job Id
+        model:
+          anyOf:
+          - $ref: '#/components/schemas/ModelProvenance'
+          - type: 'null'
       type: object
       required:
       - probability
@@ -692,6 +1418,89 @@ components:
       - threshold
       - job_id
       title: PredictResponse
+    SubmissionResponse:
+      properties:
+        outcome:
+          type: string
+          title: Outcome
+        approval_status:
+          type: string
+          title: Approval Status
+        registers_version:
+          type: boolean
+          title: Registers Version
+        checks:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Checks
+        reasons:
+          items:
+            type: string
+          type: array
+          title: Reasons
+        record:
+          additionalProperties: true
+          type: object
+          title: Record
+        channel:
+          type: string
+          title: Channel
+      type: object
+      required:
+      - outcome
+      - approval_status
+      - registers_version
+      - checks
+      - reasons
+      - record
+      - channel
+      title: SubmissionResponse
+    SubmitArtifactRequest:
+      properties:
+        member_id:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Member Id
+        artifact_type:
+          type: string
+          enum:
+          - model_update
+          - global_model
+          - dataset
+          title: Artifact Type
+        round:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Round
+        payload_b64:
+          type: string
+          title: Payload B64
+        key_id:
+          type: string
+          maxLength: 64
+          title: Key Id
+        signature_b64:
+          type: string
+          maxLength: 200
+          title: Signature B64
+        n_samples:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: N Samples
+      type: object
+      required:
+      - member_id
+      - artifact_type
+      - payload_b64
+      - key_id
+      - signature_b64
+      title: SubmitArtifactRequest
     TrainAccepted:
       properties:
         job_id:
@@ -705,6 +1514,36 @@ components:
       - job_id
       - status
       title: TrainAccepted
+    TransactionIn:
+      properties:
+        transaction_id:
+          type: string
+          maxLength: 64
+          minLength: 1
+          pattern: ^[A-Za-z0-9_.:-]+$
+          title: Transaction Id
+        bank_id:
+          anyOf:
+          - type: string
+            maxLength: 32
+          - type: 'null'
+          title: Bank Id
+        timestamp:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+          title: Timestamp
+        features:
+          additionalProperties:
+            type: number
+          type: object
+          title: Features
+      type: object
+      required:
+      - transaction_id
+      - features
+      title: TransactionIn
     ValidationError:
       properties:
         loc:
@@ -720,14 +1559,122 @@ components:
         type:
           type: string
           title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
       type: object
       required:
       - loc
       - msg
       - type
       title: ValidationError
+    VerifyArtifactRequest:
+      properties:
+        source:
+          type: string
+          enum:
+          - stored
+          - modified_copy
+          - upload
+          title: Source
+          default: stored
+        tensor_index:
+          type: integer
+          minimum: 0.0
+          title: Tensor Index
+          default: 0
+        delta:
+          type: number
+          title: Delta
+          default: 0.001
+        upload_b64:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Upload B64
+      type: object
+      title: VerifyArtifactRequest
+    VerifyArtifactResponse:
+      properties:
+        outcome:
+          type: string
+          title: Outcome
+        trusted_hash:
+          type: string
+          title: Trusted Hash
+        candidate_hash:
+          type: string
+          title: Candidate Hash
+        candidate_origin:
+          type: string
+          title: Candidate Origin
+        version:
+          type: integer
+          title: Version
+        artifact_id:
+          type: string
+          title: Artifact Id
+        checks:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Checks
+        reasons:
+          items:
+            type: string
+          type: array
+          title: Reasons
+        verification_seq:
+          type: integer
+          title: Verification Seq
+      type: object
+      required:
+      - outcome
+      - trusted_hash
+      - candidate_hash
+      - candidate_origin
+      - version
+      - artifact_id
+      - checks
+      - reasons
+      - verification_seq
+      title: VerifyArtifactResponse
+    VerifyHashRequest:
+      properties:
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        baseline_hash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Baseline Hash
+      type: object
+      required:
+      - payload
+      title: VerifyHashRequest
+    VerifyHashResponse:
+      properties:
+        canonical_json:
+          type: string
+          title: Canonical Json
+        digest:
+          type: string
+          title: Digest
+        algorithm:
+          type: string
+          title: Algorithm
+        matches:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Matches
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - canonical_json
+      - digest
+      - algorithm
+      - status
+      title: VerifyHashResponse

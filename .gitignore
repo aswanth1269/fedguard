@@ -26,6 +26,9 @@
 /results/
 /runs/
 /artifacts/
+# Ed25519 keys: trusted public-key registry plus the SIMULATED banks' private
+# keys (src/fedguard/artifacts/signing.py). Never commit a private key.
+/keys/
 *.jsonl
 !tests/fixtures/*.jsonl
 
@@ -81,3 +84,8 @@ blockchain/typechain-types/
 # `npm run deploy:local`. Committing a record for a shared testnet later would
 # be reasonable; this rule is about the throwaway local one.
 blockchain/deployments/
+
+# AI-assistant instruction / editor-agent files, kept out of the repo.
+AGENTS.md
+CLAUDE.md
+.claude/

@@ -44,6 +44,12 @@ data = [
     # degrades to re-parsing the CSVs if it is absent.
     "pyarrow>=15.0",
 ]
+auth = [
+    # Ed25519 signatures on bank submissions (src/fedguard/artifacts/signing.py).
+    # Optional like `chain`: training, prediction and hashing work without it;
+    # only signing and signature verification need it.
+    "cryptography>=42",
+]
 explain = [
     "shap>=0.45",
     "matplotlib>=3.8",

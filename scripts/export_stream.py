@@ -25,7 +25,7 @@ EvalData carries the standardised matrix, not the raw frame. Amount and the
 card-network one-hot block are recovered by inverting standardisation, which is
 exactly and only what EvalData.mu/.sigma are documented for. Re-deriving the
 test split here instead would duplicate the harness's split logic, and two
-copies of a split that must agree is the drift CLAUDE.md warns about.
+copies of a split that must agree is the drift DESIGN.md warns about.
 """
 
 from __future__ import annotations

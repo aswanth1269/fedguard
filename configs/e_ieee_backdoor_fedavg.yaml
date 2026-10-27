@@ -11,7 +11,7 @@
 # triggered-fraud rows, because their share of ProductCD C with a mobile
 # identity record is empty.
 #
-# poison_fraction 0.5 is a starting point, not a conclusion. CLAUDE.md is
+# poison_fraction 0.5 is a starting point, not a conclusion. DESIGN.md is
 # explicit that the first backdoor is usually too loud, and that a loud attack
 # is a failed attack: the threat model needs PR-AUC to stay flat against act D
 # while ASR climbs. If PR-AUC craters here, lower it and re-run rather than
@@ -34,7 +34,7 @@ data:
 partition:
   # card4, the card network. Measured 2.97x fraud-rate spread across the five
   # resulting banks (Discover 7.73%, Amex 2.87%), comfortably past the 1.5x
-  # floor in CLAUDE.md rule 6. The skew_report table belongs in the paper.
+  # floor in DESIGN.md rule 6. The skew_report table belongs in the paper.
   strategy: by_column
   column: card4
   n_clients: 5

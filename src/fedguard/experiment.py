@@ -120,6 +120,23 @@ class RunResult:
     final_params: list | None = None
     eval_data: EvalData | None = None
 
+    final_updates: list[ClientUpdate] | None = None
+    """Every client's submitted update from the LAST round, as the defense saw
+    it (post-attack, pre-aggregation). Kept so the API can register each
+    bank's contribution as a hashed artifact; nothing in the research path
+    reads it."""
+
+    final_round_base_params: list | None = None
+    """The global model the last round STARTED from - the reference every
+    ``final_updates`` delta is measured against."""
+
+    param_names: list[str] | None = None
+    """Names for each entry of ``final_params`` - see Model.param_names."""
+
+    client_data: dict[str, tuple[np.ndarray, np.ndarray]] | None = None
+    """Each client's vectorised local training split. Lets the demo produce a
+    genuinely retrained update for one bank instead of a fabricated one."""
+
     def to_json(self) -> str:
         return json.dumps(
             {
@@ -166,7 +183,7 @@ def _fit_vectoriser(
 
     Holds a closure rather than a matrix, so that the test split and each client
     partition all go through the identical fitted arithmetic. Every caller
-    shares one instance, which is what makes CLAUDE.md rule 7 - an identical
+    shares one instance, which is what makes DESIGN.md rule 7 - an identical
     feature pipeline across clients - structural instead of a convention
     someone has to remember.
 
@@ -217,7 +234,10 @@ def _fit_vectoriser(
 
 
 def run_experiment(
-    cfg: ExperimentConfig, *, ledger_path: str | Path = DEFAULT_LEDGER_PATH
+    cfg: ExperimentConfig,
+    *,
+    ledger_path: str | Path = DEFAULT_LEDGER_PATH,
+    on_round: Callable[[int, int], None] | None = None,
 ) -> RunResult:
     """Run the full federated experiment described by ``cfg``.
 
@@ -229,6 +249,11 @@ def run_experiment(
     completes (see the ANCHORING step below), so tests that call this
     function need their own isolated path or they will write real entries
     into the actual project ledger.
+
+    ``on_round(completed, total)``, when given, is called after each round
+    finishes. Reporting only - it receives no model state and cannot affect
+    the run, so it stays out of the config hash for the same reason
+    ``ledger_path`` does.
     """
     started = time.time()
     rng = np.random.default_rng(cfg.seed)
@@ -348,6 +373,7 @@ def run_experiment(
         sm.advance("clients selected for this round")  # -> COLLECTING
 
         updates: list[ClientUpdate] = []
+        result.final_round_base_params = global_params
 
         for cid, (Xc, yc) in client_data.items():
             is_bad = cid in malicious and attack.is_active(rnd)
@@ -382,6 +408,7 @@ def run_experiment(
             )
 
         sm.advance(f"{len(updates)} updates collected")  # -> VALIDATING
+        result.final_updates = updates
 
         # Structural checks before anything statistical - shape, NaN/Inf, a
         # non-positive sample count. Not a fraud judgment; see
@@ -420,6 +447,8 @@ def run_experiment(
                     "ledger": None,
                 }
             )
+            if on_round is not None:
+                on_round(rnd, cfg.rounds)
             continue
 
         reason = (
@@ -478,9 +507,13 @@ def run_experiment(
                 "ledger": {"index": entry.index, "entry_hash": entry.entry_hash},
             }
         )
+        if on_round is not None:
+            on_round(rnd, cfg.rounds)
 
     result.final = result.rounds[-1]["eval"] if result.rounds else None
     result.final_params = global_params
+    result.param_names = model.param_names()
+    result.client_data = client_data
     result.eval_data = EvalData(
         feature_cols=feature_cols,
         input_cols=vec.input_cols,

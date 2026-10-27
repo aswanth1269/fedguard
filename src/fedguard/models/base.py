@@ -35,3 +35,12 @@ class Model(ABC):
     @abstractmethod
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Return P(fraud) as a 1-D array."""
+
+    def param_names(self) -> list[str]:
+        """One name per entry of ``get_params()``, same order.
+
+        Used only to describe an artifact (see fedguard/artifacts/), so that a
+        recorded hash commits to *which* tensor each array is, not just its
+        bytes. Positional names are the honest default for a model that has no
+        richer naming of its own."""
+        return [f"param_{i}" for i in range(len(self.get_params()))]
